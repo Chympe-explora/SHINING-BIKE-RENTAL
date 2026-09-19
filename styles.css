@@ -270,3 +270,47 @@ input[type="file"]:hover::file-selector-button {
 .kc-search-input{ -webkit-appearance:none; appearance:none; }
 .kc-search-input::-webkit-search-cancel-button,
 .kc-search-input::-webkit-search-decoration{ -webkit-appearance:none; appearance:none; display:none; }
+
+/* ============================================================
+   CLEAR GLASS — every section panel (GlassCard) now matches the
+   "Rate Your Trip" / "Visitor Comments" look: almost see-through,
+   a thin soft outline, no heavy 3D shadow, so the background
+   video shows straight through.
+
+   To fine-tune the whole site in one place, change these 4 values:
+   ============================================================ */
+:root{
+  --kc-glass-fill:   rgba(255,255,255,.035);  /* panel tint: 0 = invisible, .1 = milky   */
+  --kc-glass-border: rgba(255,255,255,.20);   /* thin outline                            */
+  --kc-glass-blur:   3px;                     /* softening of what's behind the panel    */
+  --kc-glass-blur-strong: 12px;               /* header + pop-up menus (text scrolls under them) */
+}
+
+div.kc-glass{
+  background: var(--kc-glass-fill) !important;
+  border: 1px solid var(--kc-glass-border) !important;
+  box-shadow: none !important;
+  -webkit-backdrop-filter: blur(var(--kc-glass-blur)) !important;
+  backdrop-filter: blur(var(--kc-glass-blur)) !important;
+}
+
+/* Header bar + mobile menu sit on top of scrolling content, so they keep
+   a stronger blur (still just as transparent) to stay readable. */
+div.kc-glass.kc-header-3d,
+header div.kc-glass{
+  -webkit-backdrop-filter: blur(var(--kc-glass-blur-strong)) !important;
+  backdrop-filter: blur(var(--kc-glass-blur-strong)) !important;
+}
+
+/* Desktop nav pill: same clear look, no raised shadow */
+nav{
+  box-shadow: none !important;
+  background: rgba(255,255,255,.03) !important;
+  border-color: rgba(255,255,255,.16) !important;
+}
+
+/* Small row-style panels inside sections (steppers, radio rows, menu rows,
+   dropdowns): drop the raised bevel so they stay flat and clear too */
+[class*="bg-white/5"][class*="border-white/10"]:not(.kc-flat){
+  box-shadow: none;
+}
