@@ -7,8 +7,13 @@
      • Photos                (window.KC_IMAGES  below)
      • Text on the website   (window.KC_CONTENT below)
 
-   You do NOT need to open index.html, app.js, or admin.html for
-   any of that. Leave those files alone.
+   You do NOT need to open index.html or app.js for any of that.
+   Leave those files alone.
+
+   ★ EASIER: open admin.html (the Admin Dashboard) instead of editing
+   this file. Anything you change there is saved to site-data.json
+   and is merged ON TOP of the values in this file, for every
+   visitor. This file then only acts as the built-in defaults.
 
    ------------------------------------------------------------
    HOW TO EDIT SAFELY — read this once before touching anything
@@ -123,7 +128,22 @@
       childEntryFee: 50,    // ₹ per free child — entry fee
 
       // ---- Minimum advance payment (₹) required to submit a booking ----
-      minAdvance: 500
+      minAdvance: 500,
+
+      // ---- 🏍️ Bike & Scooter Rental ----
+      // Prices per vehicle, per rental plan (6 / 12 / 24 hours), plus the
+      // refundable security deposit and per-hour late fee. Match these
+      // keys ("6","12","24") to the plan IDs used in vehicleRental.vehicles
+      // below — the "Rent Now" form reads both together.
+      vehicleRental: {
+        lateFeePerHour: 70,       // ₹ per hour late, up to 2 hours (see rentalPolicy)
+        washingFee: 100,          // ₹ if returned dirty/muddy
+        vehicles: {
+          scooterA: { "6": 500, "12": 800, "24": 1200, deposit: 2000 },
+          scooterB: { "6": 600, "12": 900, "24": 1400, deposit: 2500 },
+          bikeC:    { "6": 800, "12": 1200, "24": 1800, deposit: 3000 }
+        }
+      }
     };
 
   // ============================================================
@@ -266,21 +286,6 @@
         jacket: 100,         // reserved, not currently charged
         parking: 100,        // charged once per booking
         entry: 50             // charged per person
-      },
-
-      // ---- 🏍️ Bike & Scooter Rental ----
-      // Prices per vehicle, per rental plan (6 / 12 / 24 hours), plus the
-      // refundable security deposit and per-hour late fee. Match these
-      // keys ("6","12","24") to the plan IDs used in vehicleRental.vehicles
-      // below — the "Rent Now" form reads both together.
-      vehicleRental: {
-        lateFeePerHour: 70,       // ₹ per hour late, up to 2 hours (see rentalPolicy)
-        washingFee: 100,          // ₹ if returned dirty/muddy
-        vehicles: {
-          scooterA: { "6": 500, "12": 800, "24": 1200, deposit: 2000 },
-          scooterB: { "6": 600, "12": 900, "24": 1400, deposit: 2500 },
-          bikeC:    { "6": 800, "12": 1200, "24": 1800, deposit: 3000 }
-        }
       },
 
       // ---- Meal options (shown with a quantity picker) ----
@@ -492,6 +497,14 @@
         title: "Rent a Bike or Scooter",
         subtitle: "Explore Meghalaya at your own pace — self-drive scooters and bikes, available by the hour.",
         operatingHoursNote: "Pickup & drop between 8:00 AM and 8:00 PM daily.",
+        // Wording used around the vehicle cards (all editable in the Admin Dashboard)
+        searchPlaceholder: "Search bikes & scooters",
+        noResultsTitle: "No vehicles found for",
+        noResultsText: "Try a different word, like \"scooter\" or \"bike\".",
+        clearSearchLabel: "Clear search",
+        rentNowLabel: "Rent Now",
+        depositLabel: "Refundable security deposit:",
+        photosComingSoon: "Photos coming soon",
         vehicles: [
           {
             id: "scooterA",
@@ -519,6 +532,57 @@
             images: []  // optional: "details" (extra paragraph) and "features" (bullet list) also supported
           }
         ]
+      },
+
+      // ---- Rent Now form wording — every label, button and message the
+      // visitor sees inside the rental form. Edit in the Admin Dashboard
+      // (Rental Form tab) or here. {n} in stepLabel = the step number. ----
+      rentalForm: {
+        titleSuffix: "Booking",
+        stepLabel: "STEP {n} OF 4",
+        step1Title: "Rental Details",
+        step2Title: "Your Details",
+        step3Title: "Terms & Conditions (1 of 2)",
+        step4Title: "Terms & Conditions (2 of 2)",
+        plan6: "6 Hours",
+        plan12: "12 Hours",
+        plan24: "24 Hours",
+        planLabel: "Rental Plan",
+        destinationLabel: "Destination (within Meghalaya)",
+        destinationPlaceholder: "e.g. Dawki, Shillong",
+        pickupDateLabel: "Pick-up Date",
+        pickupTimeLabel: "Pick-up Time",
+        dropDateLabel: "Drop-off Date",
+        dropTimeLabel: "Drop-off Time",
+        estimateTitle: "Estimate",
+        estimateFeeLabel: "Estimated rental fee",
+        estimateDepositLabel: "Security deposit (refundable)",
+        estimateTotalLabel: "Total due at pickup",
+        nameLabel: "Full Name",
+        namePlaceholder: "Your name",
+        phoneLabel: "Phone Number",
+        phonePlaceholder: "+91 98765 43210",
+        emailLabel: "Email (optional)",
+        emailPlaceholder: "you@example.com",
+        licenseLabel: "Driving License No.",
+        addressLabel: "Address (optional)",
+        detailsNote: "Must be at least 18 years old and hold a valid driving license — please bring your original license and ID proof (Aadhaar/Passport) to show at pickup.",
+        termsIntro: "Please read carefully before proceeding.",
+        agreeTerms: "I agree to the Terms and Conditions.",
+        agreeAge: "I confirm I am 18 years or older and possess a valid driving license.",
+        agreeFuel: "I agree to the Fuel Policy and Late Return Fees.",
+        backLabel: "Back",
+        nextLabel: "Next",
+        submitLabel: "Submit Booking Request",
+        closeLabel: "Close",
+        sentTitle: "Request sent!",
+        sentText: "We opened WhatsApp with your rental request prefilled — just hit send there to confirm with our team.",
+        errSchedule: "Please fill in the schedule and destination before continuing.",
+        errDropAfterPickup: "Drop-off must be after the pick-up date and time.",
+        errDetails: "Please fill in your name, phone number, and license number before continuing.",
+        errAgree: "Please check all three agreement boxes before submitting.",
+        whatsappTitle: "Shining Bike Rental — Vehicle Rental Request",
+        whatsappConfirmLine: "I confirm I've read and agree to the Rental Terms & Conditions, that I'm 18+ with a valid license, and to the fuel & late-return policy."
       },
 
       // ---- Rental Terms & Conditions — shown as Steps 3-4 of the "Rent
@@ -892,6 +956,10 @@
         showAgain: ""
       },
 
+      // Slim announcement strip pinned to the top of every page (e.g. "Closed
+      // on Sunday"). Off by default. Edit in the Admin Dashboard → Announcements.
+      announcement: { enabled: false, text: "" },
+
       // Homepage rotating background photos (file names come from KC_IMAGES above)
       backgrounds: [window.KC_IMAGES.heroBg1, window.KC_IMAGES.heroBg2],
 
@@ -1094,7 +1162,8 @@
         refundRequestedText: "Refund requested — waiting for your guide to review it.",
         refundApprovedText: "✅ Refund approved — your guide will be in touch about next steps.",
         refundDeniedText: "Refund request declined. Message your guide on WhatsApp if you'd like to discuss it.",
-        adminLinkLabel: "Admin"
+        adminLinkLabel: "Admin",
+        showAdminLink: true
       }
     };
 

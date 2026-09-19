@@ -1,263 +1,100 @@
 /* ============================================================
-   live-content.js — pulls in whatever the Telegram admin bot has
-   changed (text, photos, prices, discounts, highlights) and merges it
-   on top of the static config.js defaults, BEFORE app.js renders the
-   page. If this fails for any reason (offline, backend down), it
-   fails silently and the site just shows the static config.js content
-   — nothing ever breaks because of this file.
+   live-content.js — applies whatever the Admin Dashboard has
+   published (site-data.json) on top of the built-in defaults in
+   config.js, BEFORE app.js renders the page.
 
    Load order matters:
-     config.js  →  live-content.js  →  app.js
+     config.js  →  live-content.js  →  background-system.js  →  app.js
 
-   ⚠️ Update API_BASE below to match the URL in booking-bridge.js.
+   How it works
+   ------------
+   • admin.html saves your edits to site-data.json (in this same folder,
+     on your website's host). Every visitor loads that file, so every
+     visitor sees your changes.
+   • If site-data.json is missing or broken, the site quietly falls back
+     to config.js — it can never make the page blank.
+   • Objects are merged field-by-field; lists (vehicles, menu items,
+     terms sections, photos…) are replaced as a whole, so deleting a
+     vehicle or a photo in the dashboard really removes it.
    ============================================================ */
 (function () {
   "use strict";
 
-  var API_BASE = "https://teamexploera-backend.book-and-explore.workers.dev";
-  var SITE = window.KC_SITE_ID || "root";
+  var DATA_URL = "site-data.json";
 
-  function getJSON(path) {
-    try {
-      var xhr = new XMLHttpRequest();
-      // Synchronous on purpose: this has to finish before app.js reads
-      // window.KC_CONTENT a few lines below in the page. Keep whatever
-      // this returns tiny (it only ever contains admin edits, not the
-      // whole site) so this stays fast.
-      xhr.open("GET", API_BASE + path, false);
-      xhr.send(null);
-      if (xhr.status >= 200 && xhr.status < 300) {
-        var data = JSON.parse(xhr.responseText);
-        return data.ok ? data : null;
-      }
-    } catch (e) {
-      /* offline / backend down — fall back to static config.js content */
-    }
-    return null;
-  }
+  function isObj(v) { return v !== null && typeof v === "object" && !Array.isArray(v); }
+  function clone(v) { return JSON.parse(JSON.stringify(v)); }
 
-  // A "block array" is what experiences.blocks / about.blocks are made
-  // of — ordered lists of { type: "heading"|"paragraph"|"image"|... }.
-  // Telegram text edits round-trip the WHOLE array back to the backend,
-  // so an edit made before an "image" block existed (or a bot bug that
-  // only understands text blocks) can silently save a copy with the
-  // image blocks missing — and every visitor then gets that copy
-  // instead of the real config.js content. This guards against that:
-  // any "image" block present in the static config.js defaults but
-  // missing from the backend's version is spliced back in, so a
-  // content edit can only ever ADD/CHANGE text, never delete a photo
-  // it didn't touch.
-  function looksLikeBlockArray(arr) {
-    return arr.length > 0 && arr.every(function (b) {
-      return b && typeof b === "object" && typeof b.type === "string";
-    });
-  }
-
-  function restoreMissingImageBlocks(baseArr, overrideArr) {
-    if (!looksLikeBlockArray(baseArr) || !looksLikeBlockArray(overrideArr)) return overrideArr;
-    var baseImages = baseArr.filter(function (b) { return b.type === "image"; });
-    if (!baseImages.length) return overrideArr;
-    var overrideKeys = {};
-    overrideArr.forEach(function (b) { if (b.type === "image") overrideKeys[b.key] = true; });
-    var missing = baseImages.filter(function (b) { return !overrideKeys[b.key]; });
-    if (!missing.length) return overrideArr;
-    var result = overrideArr.slice();
-    // Multiple missing images can share the same text anchor (two photos
-    // back-to-back in base) — track the last insertion point per anchor
-    // so a second photo lands right after the first, not back at the
-    // anchor position (which would reverse their order).
-    var lastInsertAt = {};
-    missing.forEach(function (imgBlock) {
-      var idxInBase = baseArr.indexOf(imgBlock);
-      // Walk back past any other image blocks — an image can't be
-      // text-matched against override, so the real anchor is the
-      // nearest preceding block that actually carries text.
-      var anchorIdx = idxInBase - 1;
-      while (anchorIdx >= 0 && baseArr[anchorIdx].type === "image") anchorIdx--;
-      var anchor = anchorIdx >= 0 ? baseArr[anchorIdx] : null;
-      var anchorKey = anchor ? (anchor.type + "::" + anchor.text) : "__start__";
-      var insertAt;
-      if (Object.prototype.hasOwnProperty.call(lastInsertAt, anchorKey)) {
-        insertAt = lastInsertAt[anchorKey] + 1;
-      } else if (anchor) {
-        insertAt = result.length;
-        for (var i = 0; i < result.length; i++) {
-          if (result[i].type === anchor.type && result[i].text === anchor.text) {
-            insertAt = i + 1;
-            break;
-          }
-        }
-      } else {
-        insertAt = 0;
-      }
-      result.splice(insertAt, 0, imgBlock);
-      lastInsertAt[anchorKey] = insertAt;
-      for (var k in lastInsertAt) {
-        if (k !== anchorKey && lastInsertAt[k] >= insertAt) lastInsertAt[k] += 1;
-      }
-    });
-    return result;
-  }
-
-  // Some arrays (e.g. whyVisit.journeys) aren't "blocks" — each item is
-  // its own card carrying its photo directly — either as an "imageSlot"
-  // object (whyVisit.journeys) or as an "images" array (destinationDetails
-  // .highlights, waterfalls.locations, etc). Same failure mode as above:
-  // an admin text edit to the title/description round-trips the whole
-  // array, and if whatever saved it doesn't preserve that photo field,
-  // it silently vanishes for everyone. Match items by "label" (or
-  // "number"/"key"/"id"/"title" as fallbacks) and restore whichever
-  // photo field the override version dropped.
-  function restoreMissingEmbeddedImages(baseArr, overrideArr) {
-    if (!baseArr.length || !overrideArr.length) return overrideArr;
-    var sample = baseArr[0];
-    if (!sample || typeof sample !== "object") return overrideArr;
-    var hasImageSlot = !!sample.imageSlot;
-    var hasImagesArr = Array.isArray(sample.images);
-    if (!hasImageSlot && !hasImagesArr) return overrideArr;
-    var idFields = ["number", "key", "id", "label", "title"];
-    function idOf(item) {
-      for (var i = 0; i < idFields.length; i++) {
-        if (item && item[idFields[i]] != null) return idFields[i] + ":" + item[idFields[i]];
-      }
-      return null;
-    }
-    return overrideArr.map(function (overrideItem) {
-      var id = idOf(overrideItem);
-      if (!id) return overrideItem;
-      var baseItem = baseArr.filter(function (b) { return idOf(b) === id; })[0];
-      if (!baseItem) return overrideItem;
-      var restored = null;
-      if (hasImageSlot && baseItem.imageSlot && baseItem.imageSlot.image) {
-        var hasImage = overrideItem.imageSlot && overrideItem.imageSlot.enabled !== false && overrideItem.imageSlot.image;
-        if (!hasImage) {
-          restored = restored || copy(overrideItem);
-          restored.imageSlot = baseItem.imageSlot;
-        }
-      }
-      if (hasImagesArr && Array.isArray(baseItem.images) && baseItem.images.filter(Boolean).length) {
-        var overrideHasImages = Array.isArray(overrideItem.images) && overrideItem.images.filter(Boolean).length
-          && overrideItem.imagesEnabled !== false;
-        if (!overrideHasImages) {
-          restored = restored || copy(overrideItem);
-          restored.images = baseItem.images;
-          if (restored.imagesEnabled === false) restored.imagesEnabled = baseItem.imagesEnabled !== false;
-        }
-      }
-      return restored || overrideItem;
-    });
-    function copy(item) {
-      var out = {};
-      for (var k in item) out[k] = item[k];
-      return out;
-    }
-  }
-
-  function protectArrayImages(baseArr, overrideArr) {
-    if (looksLikeBlockArray(baseArr)) return restoreMissingImageBlocks(baseArr, overrideArr);
-    return restoreMissingEmbeddedImages(baseArr, overrideArr);
-  }
-
-  function deepMerge(base, override) {
-    if (override === undefined || override === null) return base;
-    if (Array.isArray(override)) {
-      return Array.isArray(base) ? protectArrayImages(base, override) : override;
-    }
-    if (typeof override !== "object") return override;
-    if (typeof base !== "object" || base === null || Array.isArray(base)) base = {};
+  function deepMerge(base, over) {
+    if (over === undefined || over === null) return base;
+    if (Array.isArray(over)) return clone(over);
+    if (!isObj(over)) return over;
     var out = {};
-    for (var k in base) out[k] = base[k];
-    for (var k2 in override) out[k2] = deepMerge(base[k2], override[k2]);
+    if (isObj(base)) { for (var k in base) out[k] = base[k]; }
+    for (var k2 in over) out[k2] = deepMerge(out[k2], over[k2]);
     return out;
   }
 
-  // ---- ONE combined round trip instead of four sequential ones ----
-  // This used to be four separate synchronous XHR calls back to back
-  // (content, prices, discounts, images) — each one blocking the page
-  // until it finished, one after another, before app.js could even
-  // start rendering. That was the main cause of every full page load
-  // of this site feeling slow. /api/bootstrap returns all four in one
-  // response (computed with parallel KV reads server-side), so this is
-  // now a single blocking round trip instead of four.
-  var bootstrapRes = getJSON("/api/bootstrap?site=" + SITE);
-
-  // ---- text content ----
-  if (bootstrapRes && bootstrapRes.content) {
-    window.KC_CONTENT = deepMerge(window.KC_CONTENT || {}, bootstrapRes.content);
-  }
-
-  // ---- prices ----
-  if (bootstrapRes && bootstrapRes.prices && window.KC_PRICES) {
-    window.KC_PRICES = deepMerge(window.KC_PRICES, bootstrapRes.prices);
-  }
-
-  // ---- discounts (package sale %) — part of the same response above,
-  // so the package cards can show "was ₹X, now ₹Y" on first paint
-  // instead of a flash of the full price. ----
-  if (bootstrapRes && bootstrapRes.discounts) {
-    window.KC_DISCOUNTS = bootstrapRes.discounts;
-  }
-
-  // ---- images (only keys the admin has actually changed) ----
-  // config.js copies each KC_IMAGES filename into KC_CONTENT by value
-  // at parse time (e.g. destinations.items[0].image = KC_IMAGES.card),
-  // so simply overwriting KC_IMAGES here wouldn't update anything
-  // already baked into KC_CONTENT. Instead: remember each key's OLD
-  // filename, then swap every matching string found anywhere in
-  // KC_CONTENT for the new photo URL.
-  if (bootstrapRes && bootstrapRes.images) {
-    var oldFilenames = {}; // oldFilename -> newUrl
-    window.KC_IMAGES = window.KC_IMAGES || {};
-    for (var key in bootstrapRes.images) {
-      var newUrl = bootstrapRes.images[key];
-      var oldFilename = window.KC_IMAGES[key];
-      if (oldFilename) oldFilenames[oldFilename] = newUrl;
-      window.KC_IMAGES[key] = newUrl;
-    }
-    if (window.KC_CONTENT) replaceStringsDeep(window.KC_CONTENT, oldFilenames);
-  }
-
-  function replaceStringsDeep(obj, replacements) {
-    if (!obj || typeof obj !== "object") return;
-    var keys = Object.keys(obj);
-    for (var i = 0; i < keys.length; i++) {
-      var k = keys[i];
-      var v = obj[k];
-      if (typeof v === "string" && Object.prototype.hasOwnProperty.call(replacements, v)) {
-        obj[k] = replacements[v];
-      } else if (v && typeof v === "object") {
-        replaceStringsDeep(v, replacements);
+  // Synchronous on purpose: this file is tiny and same-origin, and it must
+  // finish before app.js reads window.KC_CONTENT a moment later. The
+  // "?v=" part changes every minute so a fresh publish is picked up quickly
+  // instead of being stuck in a browser/CDN cache.
+  function load() {
+    try {
+      var xhr = new XMLHttpRequest();
+      xhr.open("GET", DATA_URL + "?v=" + Math.floor(Date.now() / 60000), false);
+      xhr.send(null);
+      if (xhr.status >= 200 && xhr.status < 300 && xhr.responseText) {
+        var data = JSON.parse(xhr.responseText);
+        return isObj(data) ? data : null;
       }
+    } catch (e) { /* file missing / offline / bad JSON — use config.js as-is */ }
+    return null;
+  }
+
+  var data = load();
+  window.KC_SITE_DATA = data || null;
+
+  if (data && isObj(data.content) && window.KC_CONTENT) {
+    var content = data.content;
+    window.KC_CONTENT = deepMerge(window.KC_CONTENT, content);
+
+    // Prices live inside each vehicle in the dashboard; app.js reads them
+    // from window.KC_PRICES.vehicleRental.vehicles[id], so build that map.
+    var list = content.vehicleRental && content.vehicleRental.vehicles;
+    if (Array.isArray(list)) {
+      window.KC_PRICES = window.KC_PRICES || {};
+      window.KC_PRICES.vehicleRental = window.KC_PRICES.vehicleRental || {};
+      var previous = window.KC_PRICES.vehicleRental.vehicles || {};
+      var map = {};
+      list.forEach(function (v) {
+        if (!v || !v.id) return;
+        if (isObj(v.prices)) {
+          map[v.id] = {
+            "6": Number(v.prices["6"]) || 0,
+            "12": Number(v.prices["12"]) || 0,
+            "24": Number(v.prices["24"]) || 0,
+            deposit: Number(v.prices.deposit) || 0
+          };
+        } else if (previous[v.id]) {
+          map[v.id] = previous[v.id];
+        }
+      });
+      window.KC_PRICES.vehicleRental.vehicles = map;
     }
   }
 
-  // ---- expose a price calculator the booking UI can call ----
-  // Usage: KC_calculatePrice({ packageKey, unitPrice, persons, addons,
-  // code }, function (result) { ... })   — result: { subtotal, breakdown, total, savings }
-  window.KC_calculatePrice = function (params, callback) {
-    fetch(API_BASE + "/api/calculate-price", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(Object.assign({ site: SITE, dateISO: new Date().toISOString() }, params)),
-    })
-      .then(function (r) { return r.json(); })
-      .then(function (data) { callback(data.ok ? data : null); })
-      .catch(function () { callback(null); });
-  };
-
-  // ---- highlight banner (site-wide announcement bar set from Telegram) ----
+  // ---- Announcement strip (admin dashboard → Announcements) ----
   document.addEventListener("DOMContentLoaded", function () {
-    fetch(API_BASE + "/api/highlights?site=" + SITE)
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (!data || !data.ok || !data.highlights || !data.highlights.length) return;
-        var bar = document.createElement("div");
-        bar.style.cssText =
-          "position:sticky;top:0;z-index:9998;background:#111827;color:#fff;" +
-          "padding:8px 14px;text-align:center;font:600 13px/1.5 system-ui,-apple-system,sans-serif;";
-        bar.textContent = "🌟 " + data.highlights.map(function (h) { return h.text; }).join("   •   ");
-        document.body.insertBefore(bar, document.body.firstChild);
-      })
-      .catch(function () {});
+    var a = window.KC_CONTENT && window.KC_CONTENT.announcement;
+    if (!a || !(a.enabled === true || a.enabled === "true") || !a.text) return;
+    var bar = document.createElement("div");
+    bar.id = "kc-announcement";
+    bar.setAttribute("role", "status");
+    bar.style.cssText =
+      "position:relative;z-index:30;background:#2E8B57;color:#fff;padding:9px 14px;" +
+      "text-align:center;font:600 13px/1.45 system-ui,-apple-system,'Segoe UI',sans-serif;";
+    bar.textContent = a.text;
+    document.body.insertBefore(bar, document.body.firstChild);
   });
 })();

@@ -89,11 +89,40 @@
   var VEHICLE_RENTAL = CONTENT.vehicleRental || { title: "Rent a Bike or Scooter", subtitle: "", vehicles: [] };
   var RENTAL_POLICY = CONTENT.rentalPolicy || { sections: [] };
   var VEHICLE_RENTAL_PRICES = (PRICES.vehicleRental && PRICES.vehicleRental.vehicles) || {};
+  // Every piece of visitor-facing text in the rental section + form comes
+  // from config.js (window.KC_CONTENT.vehicleRental / .rentalForm) so the
+  // Admin Dashboard can edit it. RF = the rental form's wording.
+  var RF = CONTENT.rentalForm || {};
   var RENTAL_PLANS = [
-    { id: "6", label: "6 Hours" },
-    { id: "12", label: "12 Hours" },
-    { id: "24", label: "24 Hours" }
+    { id: "6", label: RF.plan6 || "6 Hours" },
+    { id: "12", label: RF.plan12 || "12 Hours" },
+    { id: "24", label: RF.plan24 || "24 Hours" }
   ];
+  // Plans a vehicle can actually be rented on = the ones the admin gave a
+  // price. (If no prices are set at all, all three plans are offered.)
+  function plansFor(vehicleId) {
+    var pr = VEHICLE_RENTAL_PRICES[vehicleId] || {};
+    var priced = RENTAL_PLANS.filter(function (p) { return Number(pr[p.id]) > 0; });
+    return priced.length ? priced : RENTAL_PLANS;
+  }
+  // Vehicles the admin has switched off ("visible": false) are never shown.
+  var VEHICLE_LIST = (VEHICLE_RENTAL.vehicles || []).filter(function (v) { return v && isOn(v.visible, true); });
+
+  // Case-insensitive "search as you type" over everything a visitor can
+  // read on a vehicle card. Every word typed must appear somewhere
+  // (so "scooter black" narrows down, it doesn't widen).
+  function vehicleMatchesQuery(vehicle, query) {
+    var words = String(query || "").toLowerCase().split(/\s+/).filter(Boolean);
+    if (!words.length) return true;
+    var haystack = [
+      vehicle.name, vehicle.type, vehicle.badge, vehicle.description, vehicle.details,
+      (vehicle.features || []).join(" ")
+    ].join(" ").toLowerCase();
+    // Single letters (e.g. the "b" in "model b") must match a whole word,
+    // otherwise they'd match almost every card; longer words match anywhere.
+    var tokens = haystack.split(/[^a-z0-9\u00c0-\uffff]+/).filter(Boolean);
+    return words.every(function (w) { return w.length === 1 ? tokens.indexOf(w) !== -1 : haystack.indexOf(w) !== -1; });
+  }
 
   // Renders a "sections" array shaped like config.js's refundPolicy /
   // rentalPolicy content (each: number, heading, blocks[] of either a
@@ -234,6 +263,7 @@
     ["path", { d: "M12 3h.01" }], ["path", { d: "M12 16v.01" }], ["path", { d: "M16 12h1" }],
     ["path", { d: "M21 12v.01" }], ["path", { d: "M12 21v-1" }]
   ]);
+  var Search = makeIcon([["circle", { cx: 11, cy: 11, r: 8 }], ["path", { d: "m21 21-4.3-4.3" }]]);
   var Shield = makeIcon([["path", { d: "M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" }]]);
   var Star = makeIcon([["path", { d: "M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z" }]]);
   var Tent = makeIcon([["path", { d: "M3.5 21 14 3" }], ["path", { d: "M20.5 21 10 3" }], ["path", { d: "M15.5 21 12 15l-3.5 6" }], ["path", { d: "M2 21h20" }]]);
@@ -265,7 +295,7 @@
   function GlassCard(props) {
     return h(
       "div",
-      { className: "backdrop-blur-[24px] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.12)] rounded-[24px] shadow-[0_8px_32px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)] " + (props.className || "") },
+      { id: props.id, className: "backdrop-blur-[24px] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.12)] rounded-[24px] shadow-[0_8px_32px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.1)] " + (props.className || "") },
       props.children
     );
   }
@@ -606,7 +636,7 @@
 
     return h(
       "div", {
-        className: "relative mt-4 rounded-xl overflow-hidden aspect-[16/9] bg-black/20",
+        className: "relative " + (props.flush ? "" : "mt-4 ") + "rounded-xl overflow-hidden aspect-[16/9] bg-black/20",
         onTouchStart: onTouchStart, onTouchMove: onTouchMove, onTouchEnd: onTouchEnd
       },
       visible.map(function (src, i) {
@@ -621,12 +651,12 @@
         });
       }),
       visible.length > 1 && h(
-        "div", { className: "hidden md:flex absolute inset-0 items-center justify-between px-2" },
+        "div", { className: "flex absolute inset-0 items-center justify-between px-2 pointer-events-none" },
         h(
           "button",
           {
             onClick: function () { setIdx(function (i) { return (i - 1 + visible.length) % visible.length; }); },
-            className: "w-7 h-7 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center text-white",
+            className: "pointer-events-auto w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center text-white",
             "aria-label": "Previous photo"
           },
           h(ArrowLeft, { size: 14 })
@@ -635,16 +665,20 @@
           "button",
           {
             onClick: function () { setIdx(function (i) { return (i + 1) % visible.length; }); },
-            className: "w-7 h-7 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center text-white",
+            className: "pointer-events-auto w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center text-white",
             "aria-label": "Next photo"
           },
           h(ArrowRight, { size: 14 })
         )
       ),
       visible.length > 1 && h(
-        "div", { className: "absolute bottom-1.5 inset-x-0 flex justify-center gap-1.5" },
+        "div", { className: "absolute bottom-2 inset-x-0 flex justify-center gap-2" },
         visible.map(function (_, i) {
-          return h("span", { key: i, className: "w-1.5 h-1.5 rounded-full " + (i === safeIdx ? "bg-white" : "bg-white/40") });
+          return h("button", {
+            key: i, type: "button", "aria-label": "Show photo " + (i + 1),
+            onClick: function () { setIdx(i); },
+            className: "w-2 h-2 rounded-full " + (i === safeIdx ? "bg-white" : "bg-white/40")
+          });
         })
       )
     );
@@ -997,10 +1031,17 @@
       setRentalStep(1);
       setRentalError("");
       setRentalSent(false);
-      setRentalForm({ plan: "6", pickupDate: "", pickupTime: "", dropDate: "", dropTime: "", destination: "", name: "", phone: "", email: "", address: "", license: "" });
+      setRentalForm({ plan: plansFor(vehicle.id)[0].id, pickupDate: "", pickupTime: "", dropDate: "", dropTime: "", destination: "", name: "", phone: "", email: "", address: "", license: "" });
       setRentalAgree({ terms: false, age: false, fuel: false });
     }
     function closeRentalForm() { setRentalVehicle(null); }
+    // Lock the page behind the rental form while it is open.
+    useEffect(function () {
+      if (typeof document === "undefined" || !document.body) return undefined;
+      var prev = document.body.style.overflow;
+      if (rentalVehicle) document.body.style.overflow = "hidden";
+      return function () { document.body.style.overflow = prev; };
+    }, [!!rentalVehicle]);
     function updateRentalForm(patch) { setRentalForm(function (f) { return Object.assign({}, f, patch); }); }
 
     function rentalEstimate() {
@@ -1012,13 +1053,19 @@
       setRentalError("");
       if (rentalStep === 1) {
         if (!rentalForm.pickupDate || !rentalForm.pickupTime || !rentalForm.dropDate || !rentalForm.dropTime || !rentalForm.destination.trim()) {
-          setRentalError("Please fill in the schedule and destination before continuing.");
+          setRentalError(RF.errSchedule);
+          return;
+        }
+        var pickupAt = new Date(rentalForm.pickupDate + "T" + rentalForm.pickupTime);
+        var dropAt = new Date(rentalForm.dropDate + "T" + rentalForm.dropTime);
+        if (!(dropAt > pickupAt)) {
+          setRentalError(RF.errDropAfterPickup);
           return;
         }
       }
       if (rentalStep === 2) {
         if (!rentalForm.name.trim() || !rentalForm.phone.trim() || !rentalForm.license.trim()) {
-          setRentalError("Please fill in your name, phone number, and license number before continuing.");
+          setRentalError(RF.errDetails);
           return;
         }
       }
@@ -1032,14 +1079,14 @@
 
     function submitRentalViaWhatsApp() {
       if (!rentalAgree.terms || !rentalAgree.age || !rentalAgree.fuel) {
-        setRentalError("Please check all three agreement boxes before submitting.");
+        setRentalError(RF.errAgree);
         return;
       }
       var est = rentalEstimate();
       var planLabel = (RENTAL_PLANS.filter(function (p) { return p.id === rentalForm.plan; })[0] || {}).label || (rentalForm.plan + " Hours");
       var refCode = "R" + Date.now().toString(36).toUpperCase().slice(-6);
       var msg =
-        "🏍️ *Shining Bike Rental — Vehicle Rental Request*\n" +
+        "🏍️ *" + RF.whatsappTitle + "*\n" +
         "Ref: " + refCode + "\n\n" +
         "Vehicle: " + (rentalVehicle && rentalVehicle.name) + "\n" +
         "Plan: " + planLabel + "\n" +
@@ -1053,7 +1100,7 @@
         "Driving License No.: " + rentalForm.license + "\n\n" +
         "Estimated rental fee: " + money(est.base) + "\n" +
         "Security deposit: " + money(est.deposit) + "\n\n" +
-        "I confirm I've read and agree to the Rental Terms & Conditions, that I'm 18+ with a valid license, and to the fuel & late-return policy.";
+        RF.whatsappConfirmLine;
       window.open("https://wa.me/" + waNumber(CONTENT.whatsappNumber) + "?text=" + encodeURIComponent(msg), "_blank");
       setRentalSent(true);
     }
@@ -1541,30 +1588,10 @@
     // within one device/browser — there's no server to broadcast it wider.
     var PRICES_KEY = "kc_admin_prices";
     var CONTENT_KEY = "kc_admin_content";
-    function applyStoredOverrides() {
-      var changed = false;
-      try {
-        var storedPrices = JSON.parse(localStorage.getItem(PRICES_KEY) || "null");
-        if (storedPrices) { Object.assign(PRICES, storedPrices); changed = true; }
-      } catch (e) { /* ignore malformed data */ }
-      try {
-        var storedContent = JSON.parse(localStorage.getItem(CONTENT_KEY) || "null");
-        if (storedContent) {
-          Object.assign(CONTENT, storedContent);
-          if (storedContent.bank) Object.assign(CONTENT.bank, storedContent.bank);
-          changed = true;
-        }
-      } catch (e) { /* ignore malformed data */ }
-      if (changed) setPriceVersion(function (v) { return v + 1; }); // force re-render so new numbers/content actually show
-    }
-    useEffect(function () {
-      applyStoredOverrides();
-      function onStorage(e) {
-        if (e.key === PRICES_KEY || e.key === CONTENT_KEY) applyStoredOverrides();
-      }
-      window.addEventListener("storage", onStorage);
-      return function () { window.removeEventListener("storage", onStorage); };
-    }, []);
+    // NOTE: the old per-browser overrides (kc_admin_prices / kc_admin_content
+    // in localStorage) are no longer read. Site edits now come from
+    // site-data.json (published by admin.html) and are loaded by
+    // live-content.js before this file runs, so every visitor sees them.
 
     // Builds the prefilled WhatsApp message from the selected package +
     // items + contact details, opens it in a new tab/app, and moves the
@@ -2000,9 +2027,14 @@
           }, navLabel(p));
         }),
         h("button", { onClick: function () { goBookNow(); setMobileMenuOpen(false); }, className: "w-full bg-[#2E8B57] py-3 rounded-full font-medium" }, t("bookNow", "Book Now")),
-        h("a", { href: "admin.html", className: "block text-center text-[11px] text-white/30 pt-1" }, t("adminLinkLabel", "Admin"))
+        isOn(ui.showAdminLink, true) && h("a", { href: "admin.html", className: "block text-center text-[11px] text-white/30 pt-1" }, t("adminLinkLabel", "Admin"))
       )
     );
+
+    // ---- Vehicle search (visitor-facing search bar above the vehicle cards) ----
+    var vehicleQueryState = useState(""); var vehicleQuery = vehicleQueryState[0], setVehicleQuery = vehicleQueryState[1];
+    var shownVehicles = VEHICLE_LIST.filter(function (v) { return vehicleMatchesQuery(v, vehicleQuery); });
+    var searching = vehicleQuery.trim().length > 0;
 
     // ---- Page 1: Home ------------------------------------------------
     var titleWords = CONTENT.hero.title.split(" ");
@@ -2019,20 +2051,60 @@
             titleWords.slice(0, 2).join(" "), h("br"), h("span", { className: "text-white/70" }, titleWords.slice(2).join(" "))
           ),
           h("p", { className: "mt-5 text-white/70 text-[15px] leading-relaxed max-w-[520px]" }, CONTENT.hero.sub),
-          h("div", { className: "mt-8 flex gap-3" }, h("button", { onClick: function () { goBookNow(); }, className: "bg-[#2E8B57] hover:bg-[#257a4b] px-7 py-3 rounded-full text-sm font-semibold flex items-center gap-2" }, "View Vehicles ", h(ArrowRight, { size: 16 })))
+          h("div", { className: "mt-8 flex gap-3" }, h("button", { onClick: function () { goBookNow(); }, className: "bg-[#2E8B57] hover:bg-[#257a4b] px-7 py-3 rounded-full text-sm font-semibold flex items-center gap-2" }, ((CONTENT.hero && CONTENT.hero.bookNowLabel) || "View Vehicles") + " ", h(ArrowRight, { size: 16 })))
         )
       ),
-      SECTIONS.vehicleRental && VEHICLE_RENTAL.vehicles && VEHICLE_RENTAL.vehicles.length > 0 && h(
+      SECTIONS.vehicleRental && VEHICLE_LIST.length > 0 && h(
         "div", { id: "kc-vehicle-rental", className: "space-y-6 scroll-mt-24" },
         h(
           GlassCard, { className: "p-6 md:p-8 text-center" },
           h("h2", { className: "text-2xl md:text-3xl font-semibold" }, VEHICLE_RENTAL.title),
           VEHICLE_RENTAL.subtitle && h("p", { className: "mt-2 text-white/60 text-sm max-w-[560px] mx-auto" }, VEHICLE_RENTAL.subtitle),
-          VEHICLE_RENTAL.operatingHoursNote && h("p", { className: "mt-1 text-white/40 text-[12px]" }, VEHICLE_RENTAL.operatingHoursNote)
+          VEHICLE_RENTAL.operatingHoursNote && h("p", { className: "mt-1 text-white/40 text-[12px]" }, VEHICLE_RENTAL.operatingHoursNote),
+
+          // ---- Search bar ----
+          h(
+            "div", { className: "mt-6 max-w-[520px] mx-auto" },
+            h(
+              "div", { className: "relative" },
+              h("span", { className: "absolute left-4 top-1/2 -translate-y-1/2 text-white/50 pointer-events-none" }, h(Search, { size: 18 })),
+              h("input", {
+                type: "search",
+                id: "kc-vehicle-search",
+                value: vehicleQuery,
+                onChange: function (e) { setVehicleQuery(e.target.value); },
+                placeholder: VEHICLE_RENTAL.searchPlaceholder || "Search bikes & scooters",
+                "aria-label": VEHICLE_RENTAL.searchPlaceholder || "Search bikes and scooters",
+                autoComplete: "off",
+                autoCorrect: "off",
+                spellCheck: false,
+                enterKeyHint: "search",
+                className: "kc-search-input w-full pl-11 pr-11 py-3.5 rounded-full bg-white/10 border border-white/15 text-sm text-white placeholder-white/40 outline-none focus:border-emerald-400/60 focus:bg-white/[0.14] transition"
+              }),
+              searching && h("button", {
+                type: "button",
+                onClick: function () { setVehicleQuery(""); var el = document.getElementById("kc-vehicle-search"); if (el) el.focus(); },
+                "aria-label": VEHICLE_RENTAL.clearSearchLabel || "Clear search",
+                className: "absolute right-3 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/80"
+              }, h(X, { size: 14 }))
+            ),
+            searching && h("p", { className: "mt-2 text-[12px] text-white/50", "aria-live": "polite" },
+              shownVehicles.length + " of " + VEHICLE_LIST.length + " " + (VEHICLE_LIST.length === 1 ? "vehicle" : "vehicles"))
+          )
         ),
-        VEHICLE_RENTAL.vehicles.map(function (vehicle) {
+        shownVehicles.length === 0 && h(
+          GlassCard, { className: "p-8 text-center" },
+          h("div", { className: "w-12 h-12 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-3 text-white/60" }, h(Search, { size: 22 })),
+          h("h3", { className: "text-lg font-semibold" }, (VEHICLE_RENTAL.noResultsTitle || "No vehicles found") + " \u201c" + vehicleQuery.trim() + "\u201d"),
+          VEHICLE_RENTAL.noResultsText && h("p", { className: "mt-2 text-white/60 text-sm" }, VEHICLE_RENTAL.noResultsText),
+          h("button", {
+            onClick: function () { setVehicleQuery(""); },
+            className: "mt-5 bg-[#2E8B57] hover:bg-[#257a4b] px-6 py-2.5 rounded-full text-sm font-semibold"
+          }, VEHICLE_RENTAL.clearSearchLabel || "Clear search")
+        ),
+        shownVehicles.map(function (vehicle) {
           var prices = VEHICLE_RENTAL_PRICES[vehicle.id] || {};
-          var vImages = (vehicle.images && vehicle.images.length ? vehicle.images : (vehicle.image ? [vehicle.image] : []));
+          var vImages = (vehicle.images && vehicle.images.length ? vehicle.images : (vehicle.image ? [vehicle.image] : [])).filter(Boolean);
           return h(
             GlassCard, { key: vehicle.id, id: "kc-vehicle-" + vehicle.id, className: "p-5 md:p-8 scroll-mt-24" },
             h(
@@ -2040,8 +2112,8 @@
               h(
                 "div", { className: "rounded-[18px] overflow-hidden bg-white/5 border border-white/10" },
                 vImages.length > 0
-                  ? h(ImageSlider, { images: vImages, alt: vehicle.name })
-                  : h("div", { className: "aspect-[16/9] w-full flex items-center justify-center" }, h("div", { className: "text-center" }, h("div", { className: "w-12 h-12 rounded-lg bg-emerald-500/20 flex items-center justify-center mx-auto mb-2" }, h(Bike, { size: 24, className: "text-emerald-400" })), h("p", { className: "text-[12px] text-white/50" }, "Photos coming soon")))
+                  ? h(ImageSlider, { images: vImages, alt: vehicle.name, flush: true })
+                  : h("div", { className: "aspect-[16/9] w-full flex items-center justify-center" }, h("div", { className: "text-center" }, h("div", { className: "w-12 h-12 rounded-lg bg-emerald-500/20 flex items-center justify-center mx-auto mb-2" }, h(Bike, { size: 24, className: "text-emerald-400" })), h("p", { className: "text-[12px] text-white/50" }, VEHICLE_RENTAL.photosComingSoon || "Photos coming soon")))
               ),
               h(
                 "div", { className: "flex flex-col" },
@@ -2067,34 +2139,15 @@
                     );
                   })
                 ),
-                prices.deposit && h("p", { className: "mt-2 text-[12px] text-white/50" }, "Refundable security deposit: " + money(prices.deposit)),
+                prices.deposit && h("p", { className: "mt-2 text-[12px] text-white/50" }, (VEHICLE_RENTAL.depositLabel || "Refundable security deposit:") + " " + money(prices.deposit)),
                 h("button", {
                   onClick: function () { openRentalForm(vehicle); },
                   className: "mt-5 w-full bg-[#2E8B57] hover:bg-[#257a4b] py-3 rounded-full text-sm font-semibold flex items-center justify-center gap-2"
-                }, "Rent Now", h(ArrowRight, { size: 15 }))
+                }, VEHICLE_RENTAL.rentNowLabel || "Rent Now", h(ArrowRight, { size: 15 }))
               )
             )
           );
         })
-      ),
-      h(
-        GlassCard, { id: "kc-how-it-works", className: "p-6 md:p-10 scroll-mt-24" },
-        h("h2", { className: "text-2xl md:text-3xl font-semibold text-center" }, "How Renting Works"),
-        h(
-          "div", { className: "mt-8 grid md:grid-cols-3 gap-5" },
-          [
-            { n: "1", title: "Choose your ride", text: "Pick a scooter or bike above and tap Rent Now. Choose a 6, 12 or 24 hour plan." },
-            { n: "2", title: "Fill in the form", text: "Enter your schedule, your details and driving license number, then agree to the rental terms." },
-            { n: "3", title: "Confirm on WhatsApp", text: "We open WhatsApp with your request ready to send. Pay the rental fee and refundable deposit at pickup, and bring your original license and ID." }
-          ].map(function (step) {
-            return h(
-              "div", { key: step.n, className: "rounded-[16px] bg-white/5 border border-white/10 p-5" },
-              h("div", { className: "w-8 h-8 rounded-full bg-[#2E8B57] flex items-center justify-center text-sm font-bold" }, step.n),
-              h("div", { className: "mt-3 font-semibold text-[15px]" }, step.title),
-              h("p", { className: "mt-1.5 text-[13px] text-white/60 leading-relaxed" }, step.text)
-            );
-          })
-        )
       ),
       h(
         "footer", { id: "kc-contact", className: "pt-6 scroll-mt-24" },
@@ -2847,132 +2900,168 @@
     // vehicle has been selected. ----
     var rentalInputClass = "w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 outline-none focus:border-emerald-400/50 text-sm [color-scheme:dark]";
     var rentalEst = rentalEstimate();
+    var RENTAL_STEP_TITLES = [RF.step1Title, RF.step2Title, RF.step3Title, RF.step4Title];
+    function rentalField(label, control, extraClass) {
+      return h("label", { className: "space-y-2 block " + (extraClass || "") }, h("span", { className: "text-xs text-white/60" }, label), control);
+    }
+    var rentalToday = new Date().toISOString().slice(0, 10);
     var rentalFormModal = rentalVehicle && h(
-      "div", { className: "fixed inset-0 z-[70] flex items-center justify-center p-3 md:p-6", onClick: closeRentalForm },
-      h("div", { className: "absolute inset-0 bg-black/75 backdrop-blur-sm" }),
+      "div", { className: "fixed inset-0 z-[70] overflow-y-auto" },
+      h("div", { className: "fixed inset-0 bg-black/60 backdrop-blur-md", onClick: closeRentalForm }),
       h(
-        "div", {
-          className: "relative bg-[#0b0f0d] border border-white/10 rounded-[24px] w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 md:p-8 shadow-2xl",
-          onClick: function (e) { e.stopPropagation(); }
-        },
+        "div", { className: "relative min-h-full flex items-start md:items-center justify-center p-3 md:p-6 pointer-events-none" },
         h(
-          "div", { className: "flex items-start justify-between gap-3" },
+          GlassCard, { className: "w-full max-w-[900px] p-6 md:p-8 pointer-events-auto" },
+
+          // ---- Header (same look as the site's booking form header) ----
           h(
-            "div", null,
-            h("div", { className: "text-[11px] tracking-widest text-white/40" }, "STEP " + rentalStep + " OF 4"),
-            h("h3", { className: "mt-1 text-lg font-semibold" }, rentalVehicle.name)
-          ),
-          h("button", { onClick: closeRentalForm, "aria-label": "Close", className: "w-8 h-8 rounded-full bg-white/10 border border-white/10 flex items-center justify-center flex-shrink-0" }, h(X, { size: 15 }))
-        ),
-
-        rentalSent ? h(
-          "div", { className: "mt-8 text-center" },
-          h("div", { className: "w-14 h-14 mx-auto rounded-full bg-emerald-500/20 flex items-center justify-center" }, h(Check, { size: 26, className: "text-emerald-400" })),
-          h("h4", { className: "mt-4 font-semibold text-lg" }, "Request sent!"),
-          h("p", { className: "mt-2 text-white/60 text-sm" }, "We opened WhatsApp with your rental request prefilled — just hit send there to confirm with our team."),
-          h("button", { onClick: closeRentalForm, className: "mt-6 w-full bg-white/10 border border-white/10 py-3 rounded-full text-sm font-semibold" }, "Close")
-        ) : h(
-          "div", { className: "mt-6" },
-
-          // ---- Step 1: Rental Information ----
-          rentalStep === 1 && h(
-            "div", { className: "space-y-4" },
+            "div", { className: "flex items-start justify-between gap-3" },
             h(
-              "label", { className: "block" },
-              h("span", { className: "text-xs text-white/60" }, "Rental Plan"),
+              "div", { className: "flex items-center gap-3" },
+              h("div", { className: "w-8 h-8 rounded-full flex items-center justify-center bg-[#2E8B57] flex-shrink-0" }, h(Bike, { size: 16 })),
+              h("h2", { className: "text-2xl font-semibold" }, rentalVehicle.name, " " + RF.titleSuffix)
+            ),
+            h("button", { onClick: closeRentalForm, "aria-label": "Close", className: "w-9 h-9 rounded-full bg-white/10 border border-white/10 flex items-center justify-center flex-shrink-0" }, h(X, { size: 16 }))
+          ),
+
+          rentalSent ? h(
+            "div", { className: "mt-10 mb-4 text-center" },
+            h("div", { className: "w-16 h-16 mx-auto rounded-full bg-emerald-500/20 flex items-center justify-center" }, h(Check, { size: 30, className: "text-emerald-400" })),
+            h("h3", { className: "mt-5 text-2xl font-semibold" }, RF.sentTitle),
+            h("p", { className: "mt-2 text-white/60 text-sm max-w-[420px] mx-auto leading-relaxed" }, RF.sentText),
+            h("button", { onClick: closeRentalForm, className: "mt-8 w-full bg-white/5 border border-white/10 py-3.5 rounded-full font-semibold" }, RF.closeLabel)
+          ) : h(
+            "div", null,
+
+            // ---- Step indicator ----
+            h(
+              "div", { className: "mt-6" },
+              h("div", { className: "flex items-center justify-between text-[11px] tracking-widest text-white/50" }, h("span", null, String(RF.stepLabel).replace("{n}", rentalStep).replace("{total}", "4")), h("span", { className: "text-white/70 tracking-normal text-xs" }, RENTAL_STEP_TITLES[rentalStep - 1])),
               h(
-                "select", {
-                  value: rentalForm.plan,
-                  onChange: function (e) { updateRentalForm({ plan: e.target.value }); },
-                  className: rentalInputClass + " mt-2 appearance-none"
-                },
-                RENTAL_PLANS.map(function (p) {
-                  var price = (VEHICLE_RENTAL_PRICES[rentalVehicle.id] || {})[p.id];
-                  return h("option", { key: p.id, value: p.id }, p.label + (price ? " — " + money(price) : ""));
+                "div", { className: "mt-2 grid grid-cols-4 gap-2" },
+                [1, 2, 3, 4].map(function (n) {
+                  return h("div", { key: n, className: "h-1.5 rounded-full " + (n <= rentalStep ? "bg-[#2E8B57]" : "bg-white/10") });
                 })
               )
             ),
-            h(
-              "div", { className: "grid grid-cols-2 gap-3" },
-              h("label", { className: "block" }, h("span", { className: "text-xs text-white/60" }, "Pick-up Date"), h("input", { type: "date", value: rentalForm.pickupDate, onChange: function (e) { updateRentalForm({ pickupDate: e.target.value }); }, className: rentalInputClass + " mt-2" })),
-              h("label", { className: "block" }, h("span", { className: "text-xs text-white/60" }, "Pick-up Time"), h("input", { type: "time", value: rentalForm.pickupTime, onChange: function (e) { updateRentalForm({ pickupTime: e.target.value }); }, className: rentalInputClass + " mt-2" })),
-              h("label", { className: "block" }, h("span", { className: "text-xs text-white/60" }, "Drop-off Date"), h("input", { type: "date", value: rentalForm.dropDate, onChange: function (e) { updateRentalForm({ dropDate: e.target.value }); }, className: rentalInputClass + " mt-2" })),
-              h("label", { className: "block" }, h("span", { className: "text-xs text-white/60" }, "Drop-off Time"), h("input", { type: "time", value: rentalForm.dropTime, onChange: function (e) { updateRentalForm({ dropTime: e.target.value }); }, className: rentalInputClass + " mt-2" }))
+
+            // ---- Selected vehicle summary (steps 1-2) ----
+            rentalStep <= 2 && h(
+              GlassCard, { className: "mt-6 p-4 !rounded-[16px] flex gap-4 items-center" },
+              h(
+                "div", { className: "w-20 h-20 rounded-xl bg-white/5 border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center" },
+                (rentalVehicle.images && rentalVehicle.images[0]) || rentalVehicle.image
+                  ? h("img", { src: (rentalVehicle.images && rentalVehicle.images[0]) || rentalVehicle.image, alt: rentalVehicle.name, className: "w-full h-full object-cover" })
+                  : h(Bike, { size: 28, className: "text-emerald-400" })
+              ),
+              h(
+                "div", { className: "min-w-0" },
+                h("div", { className: "font-medium" }, rentalVehicle.name),
+                h("div", { className: "mt-1 text-[13px] text-white/60 leading-relaxed" }, rentalVehicle.description)
+              )
             ),
-            VEHICLE_RENTAL.operatingHoursNote && h("p", { className: "text-[11px] text-white/40" }, VEHICLE_RENTAL.operatingHoursNote),
-            h(
-              "label", { className: "block" },
-              h("span", { className: "text-xs text-white/60" }, "Destination (within Meghalaya)"),
-              h("input", { type: "text", value: rentalForm.destination, onChange: function (e) { updateRentalForm({ destination: e.target.value }); }, placeholder: "e.g. Dawki, Shillong", className: rentalInputClass + " mt-2" })
+
+            // ---- Step 1: Rental Information ----
+            rentalStep === 1 && h(
+              "div", { className: "mt-6 space-y-5" },
+              h(
+                "div", { className: "grid md:grid-cols-2 gap-5" },
+                rentalField(RF.planLabel, h(
+                  "select", {
+                    value: rentalForm.plan,
+                    onChange: function (e) { updateRentalForm({ plan: e.target.value }); },
+                    className: rentalInputClass + " appearance-none"
+                  },
+                  plansFor(rentalVehicle.id).map(function (p) {
+                    var price = (VEHICLE_RENTAL_PRICES[rentalVehicle.id] || {})[p.id];
+                    return h("option", { key: p.id, value: p.id }, p.label + (price ? " — " + money(price) : ""));
+                  })
+                )),
+                rentalField(RF.destinationLabel, h("input", { type: "text", value: rentalForm.destination, onChange: function (e) { updateRentalForm({ destination: e.target.value }); }, placeholder: RF.destinationPlaceholder, className: rentalInputClass }))
+              ),
+              h(
+                "div", { className: "grid grid-cols-2 gap-x-4 gap-y-5 md:gap-5" },
+                rentalField(RF.pickupDateLabel, h("input", { type: "date", min: rentalToday, value: rentalForm.pickupDate, onChange: function (e) { updateRentalForm({ pickupDate: e.target.value }); }, className: rentalInputClass })),
+                rentalField(RF.pickupTimeLabel, h("input", { type: "time", value: rentalForm.pickupTime, onChange: function (e) { updateRentalForm({ pickupTime: e.target.value }); }, className: rentalInputClass })),
+                rentalField(RF.dropDateLabel, h("input", { type: "date", min: rentalForm.pickupDate || rentalToday, value: rentalForm.dropDate, onChange: function (e) { updateRentalForm({ dropDate: e.target.value }); }, className: rentalInputClass })),
+                rentalField(RF.dropTimeLabel, h("input", { type: "time", value: rentalForm.dropTime, onChange: function (e) { updateRentalForm({ dropTime: e.target.value }); }, className: rentalInputClass }))
+              ),
+              VEHICLE_RENTAL.operatingHoursNote && h("p", { className: "text-[12px] text-white/50" }, VEHICLE_RENTAL.operatingHoursNote),
+              h(
+                GlassCard, { className: "p-5 !rounded-[16px]" },
+                h("h4", { className: "font-semibold mb-3" }, RF.estimateTitle),
+                h("div", { className: "space-y-2" },
+                  h("div", { className: "flex justify-between text-[13px] py-1 border-b border-white/5" }, h("span", { className: "text-white/60" }, RF.estimateFeeLabel), h("span", null, money(rentalEst.base))),
+                  h("div", { className: "flex justify-between text-[13px] py-1 border-b border-white/5" }, h("span", { className: "text-white/60" }, RF.estimateDepositLabel), h("span", null, money(rentalEst.deposit)))
+                ),
+                h("div", { className: "mt-4 flex justify-between font-bold text-lg" }, h("span", null, RF.estimateTotalLabel), h("span", null, money(rentalEst.base + rentalEst.deposit)))
+              )
             ),
+
+            // ---- Step 2: Customer Details & Verification ----
+            rentalStep === 2 && h(
+              "div", { className: "mt-6 space-y-5" },
+              h(
+                "div", { className: "grid md:grid-cols-2 gap-5" },
+                rentalField(RF.nameLabel, h("input", { type: "text", value: rentalForm.name, onChange: function (e) { updateRentalForm({ name: e.target.value }); }, placeholder: RF.namePlaceholder, className: rentalInputClass })),
+                rentalField(RF.phoneLabel, h("input", { type: "tel", value: rentalForm.phone, onChange: function (e) { updateRentalForm({ phone: e.target.value }); }, placeholder: RF.phonePlaceholder, className: rentalInputClass })),
+                rentalField(RF.emailLabel, h("input", { type: "email", value: rentalForm.email, onChange: function (e) { updateRentalForm({ email: e.target.value }); }, placeholder: RF.emailPlaceholder, className: rentalInputClass })),
+                rentalField(RF.licenseLabel, h("input", { type: "text", value: rentalForm.license, onChange: function (e) { updateRentalForm({ license: e.target.value }); }, className: rentalInputClass })),
+                rentalField(RF.addressLabel, h("textarea", { value: rentalForm.address, rows: 3, onChange: function (e) { updateRentalForm({ address: e.target.value }); }, className: rentalInputClass + " resize-none" }), "md:col-span-2")
+              ),
+              h(
+                GlassCard, { className: "p-5 !rounded-[16px] text-[13px] text-white/70 leading-relaxed" },
+                RF.detailsNote
+              )
+            ),
+
+            // ---- Step 3: Terms & Conditions (part 1) ----
+            rentalStep === 3 && h(
+              "div", { className: "mt-6 space-y-4" },
+              h("p", { className: "text-white/60 text-[13px]" }, RF.termsIntro),
+              h(GlassCard, { className: "p-5 md:p-6 !rounded-[16px] space-y-5" }, renderPolicySections((RENTAL_POLICY.sections || []).slice(0, 3)))
+            ),
+
+            // ---- Step 4: Terms & Conditions (part 2) + agreement ----
+            rentalStep === 4 && h(
+              "div", { className: "mt-6 space-y-5" },
+              h(GlassCard, { className: "p-5 md:p-6 !rounded-[16px] space-y-5" }, renderPolicySections((RENTAL_POLICY.sections || []).slice(3))),
+              h(
+                GlassCard, { className: "p-5 !rounded-[16px] space-y-3" },
+                [
+                  { key: "terms", label: RF.agreeTerms },
+                  { key: "age", label: RF.agreeAge },
+                  { key: "fuel", label: RF.agreeFuel }
+                ].map(function (item) {
+                  return h(
+                    "label", { key: item.key, className: "flex items-start gap-3 text-[13px] text-white/80 cursor-pointer" },
+                    h("input", {
+                      type: "checkbox",
+                      checked: rentalAgree[item.key],
+                      onChange: function (e) {
+                        var checked = e.target.checked;
+                        setRentalAgree(function (a) {
+                          var next = Object.assign({}, a);
+                          next[item.key] = checked;
+                          return next;
+                        });
+                      },
+                      className: "mt-0.5 w-4 h-4 accent-emerald-500 flex-shrink-0"
+                    }),
+                    item.label
+                  );
+                })
+              )
+            ),
+
+            rentalError && h("div", { className: "mt-5 rounded-xl bg-amber-500/10 border border-amber-400/30 px-4 py-3 text-[13px] text-amber-200" }, rentalError),
+
             h(
-              "div", { className: "rounded-xl bg-white/5 border border-white/10 p-4 space-y-1.5" },
-              h("div", { className: "flex justify-between text-[13px]" }, h("span", { className: "text-white/60" }, "Estimated rental fee"), h("span", { className: "font-medium" }, money(rentalEst.base))),
-              h("div", { className: "flex justify-between text-[13px]" }, h("span", { className: "text-white/60" }, "Security deposit"), h("span", { className: "font-medium" }, money(rentalEst.deposit))),
-              h("div", { className: "flex justify-between text-sm pt-1.5 border-t border-white/10" }, h("span", { className: "font-semibold" }, "Total due at pickup"), h("span", { className: "font-bold" }, money(rentalEst.base + rentalEst.deposit)))
+              "div", { className: "mt-8 flex gap-3" },
+              rentalStep > 1 && h("button", { onClick: rentalGoBack, className: "px-6 py-3.5 rounded-full bg-white/5 border border-white/10 font-semibold flex items-center gap-2" }, h(ArrowLeft, { size: 16 }), RF.backLabel),
+              rentalStep < 4 && h("button", { onClick: rentalGoNext, className: "flex-1 bg-[#2E8B57] hover:bg-[#257a4b] py-3.5 rounded-full font-semibold flex items-center justify-center gap-2" }, RF.nextLabel, h(ArrowRight, { size: 18 })),
+              rentalStep === 4 && h("button", { onClick: submitRentalViaWhatsApp, className: "flex-1 kc-whatsapp-btn" }, h(Phone, { size: 16 }), RF.submitLabel)
             )
-          ),
-
-          // ---- Step 2: Customer Details & Verification ----
-          rentalStep === 2 && h(
-            "div", { className: "space-y-4" },
-            h("label", { className: "block" }, h("span", { className: "text-xs text-white/60" }, "Full Name"), h("input", { type: "text", value: rentalForm.name, onChange: function (e) { updateRentalForm({ name: e.target.value }); }, className: rentalInputClass + " mt-2" })),
-            h(
-              "div", { className: "grid grid-cols-2 gap-3" },
-              h("label", { className: "block" }, h("span", { className: "text-xs text-white/60" }, "Phone Number"), h("input", { type: "tel", value: rentalForm.phone, onChange: function (e) { updateRentalForm({ phone: e.target.value }); }, className: rentalInputClass + " mt-2" })),
-              h("label", { className: "block" }, h("span", { className: "text-xs text-white/60" }, "Email (optional)"), h("input", { type: "email", value: rentalForm.email, onChange: function (e) { updateRentalForm({ email: e.target.value }); }, className: rentalInputClass + " mt-2" }))
-            ),
-            h("label", { className: "block" }, h("span", { className: "text-xs text-white/60" }, "Address (optional)"), h("textarea", { value: rentalForm.address, rows: 2, onChange: function (e) { updateRentalForm({ address: e.target.value }); }, className: rentalInputClass + " mt-2 resize-none" })),
-            h("label", { className: "block" }, h("span", { className: "text-xs text-white/60" }, "Driving License No."), h("input", { type: "text", value: rentalForm.license, onChange: function (e) { updateRentalForm({ license: e.target.value }); }, className: rentalInputClass + " mt-2" })),
-            h("p", { className: "text-[12px] text-white/50 leading-relaxed" }, "Must be at least 18 years old and hold a valid driving license — please bring your original license and ID proof (Aadhaar/Passport) to show at pickup.")
-          ),
-
-          // ---- Step 3: Terms & Conditions (part 1) ----
-          rentalStep === 3 && h(
-            "div", { className: "space-y-5" },
-            h("p", { className: "text-white/60 text-[13px]" }, "Please read carefully before proceeding."),
-            renderPolicySections((RENTAL_POLICY.sections || []).slice(0, 3))
-          ),
-
-          // ---- Step 4: Terms & Conditions (part 2) + agreement ----
-          rentalStep === 4 && h(
-            "div", { className: "space-y-5" },
-            renderPolicySections((RENTAL_POLICY.sections || []).slice(3)),
-            h(
-              "div", { className: "border-t border-white/10 pt-5 space-y-3" },
-              [
-                { key: "terms", label: "I agree to the Terms and Conditions." },
-                { key: "age", label: "I confirm I am 18 years or older and possess a valid driving license." },
-                { key: "fuel", label: "I agree to the Fuel Policy and Late Return Fees." }
-              ].map(function (item) {
-                return h(
-                  "label", { key: item.key, className: "flex items-start gap-3 text-[13px] text-white/70 cursor-pointer" },
-                  h("input", {
-                    type: "checkbox",
-                    checked: rentalAgree[item.key],
-                    onChange: function (e) {
-                      var checked = e.target.checked;
-                      setRentalAgree(function (a) {
-                        var next = Object.assign({}, a);
-                        next[item.key] = checked;
-                        return next;
-                      });
-                    },
-                    className: "mt-0.5 w-4 h-4 accent-emerald-500 flex-shrink-0"
-                  }),
-                  item.label
-                );
-              })
-            )
-          ),
-
-          rentalError && h("p", { className: "mt-4 text-[12px] text-amber-300" }, rentalError),
-
-          h(
-            "div", { className: "mt-6 flex gap-3" },
-            rentalStep > 1 && h("button", { onClick: rentalGoBack, className: "px-5 py-2.5 rounded-full bg-white/10 border border-white/10 text-sm flex items-center gap-2" }, h(ArrowLeft, { size: 15 }), "Back"),
-            rentalStep < 4 && h("button", { onClick: rentalGoNext, className: "flex-1 bg-[#2E8B57] hover:bg-[#257a4b] py-2.5 rounded-full text-sm font-semibold flex items-center justify-center gap-2" }, "Next", h(ArrowRight, { size: 15 })),
-            rentalStep === 4 && h("button", { onClick: submitRentalViaWhatsApp, className: "flex-1 kc-whatsapp-btn" }, h(Phone, { size: 16 }), "Submit Booking Request")
           )
         )
       )

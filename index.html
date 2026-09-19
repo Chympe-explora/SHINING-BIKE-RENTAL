@@ -20,9 +20,10 @@
   <meta name="twitter:image" content="og-image.jpg">
 
   <!--
-    ⚠️  ALL PRICES, PHOTOS, AND TEXT LIVE IN config.js NOW — not in this
-    file. Open config.js to change anything. This file (index.html) is
-    the site's engine room; you shouldn't need to touch it.
+    ⚠️  ALL PRICES, PHOTOS, AND TEXT COME FROM THE ADMIN DASHBOARD
+    (admin.html → saved to site-data.json), with config.js holding the
+    built-in defaults. This file (index.html) is the site's engine room;
+    you shouldn't need to touch it.
 
     The tiny script below just watches for typos in config.js (like a
     missing comma) and shows a clear red warning banner on the site
@@ -51,11 +52,10 @@
   </script>
   <script src="config.js" defer></script>
   <script>window.KC_SITE_ID = "krem-chympe";</script>
-  <!-- Pulls in anything changed from the Telegram admin bot (text,
-       photos, prices, discounts, highlights) and merges it over the
-       config.js defaults above, before the page renders. See
-       live-content.js — safe to remove and the site still works from
-       config.js alone. -->
+  <!-- Loads site-data.json (everything published from admin.html: vehicles,
+       photos, prices, text…) and merges it over the config.js defaults above,
+       before the page renders. See live-content.js — if site-data.json is
+       missing the site simply shows the config.js defaults. -->
   <script src="live-content.js" defer></script>
 
   <!-- Site-wide fixed background video, mounted once outside the React
@@ -96,7 +96,8 @@
   <script src="app.js" defer></script>
   <!-- Makes external links open safely in a new tab -->
   <script src="safelinks.js" defer></script>
-  <!-- Content Editor: pencil-icon tap-to-edit tool for text/images/highlights -->
-  <script src="editor.js" defer></script>
+  <!-- (editor.js — the old per-device pencil/tap-to-edit tool — is no longer
+       loaded. All site editing now happens in admin.html, which publishes
+       to site-data.json for every visitor.) -->
 </body>
 </html>

@@ -264,3 +264,9 @@ input[type="file"]:hover::file-selector-button {
     0 10px 26px rgba(0,0,0,.4) !important;
 }
 
+
+/* ---- Vehicle search bar: hide the browser's own clear (×) button so only
+   our own one shows, and keep the pill shape on iOS Safari. ---- */
+.kc-search-input{ -webkit-appearance:none; appearance:none; }
+.kc-search-input::-webkit-search-cancel-button,
+.kc-search-input::-webkit-search-decoration{ -webkit-appearance:none; appearance:none; display:none; }

@@ -3,628 +3,968 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="robots" content="noindex,nofollow"/>
 <title>Shining Bike Rental — Admin Dashboard</title>
+<link rel="icon" href="favicon.png">
 <!--
-  Fully client-side — no backend, no Render, no Cloudflare Worker, no
-  Telegram bot. Everything the admin edits here is saved straight into
-  this browser's localStorage, and index.html reads it from the same
-  place (live, via a "storage" event listener) when opened in the same
-  browser. See ../README.md for the "why" and the per-device limitation.
+  ADMIN DASHBOARD
+  ---------------
+  Edit everything visitors see, then press Publish. Publishing writes
+  site-data.json (and any photos you added) straight into your GitHub
+  repository; GitHub Pages then updates the live site (about a minute).
+  Every visitor sees the change — not just this browser.
+
+  The site's built-in defaults still live in config.js; this dashboard
+  reads them so you always see what visitors currently see.
+
+  Security: publishing needs your GitHub access token (kept only in this
+  browser). Without it, nobody can change the live site from this page.
 -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>">
 <style>
-  :root{ color-scheme: dark; --brand:#2E8B57; --brand-dark:#257a4b; }
-  *{box-sizing:border-box;}
-  body{
-    margin:0; min-height:100vh; font-family:'Inter','Poppins',system-ui,-apple-system,sans-serif;
-    color:#f2f4f8; padding:16px 16px 60px;
-    background: radial-gradient(1200px 600px at 20% -10%, rgba(46,139,87,0.22), transparent 60%),
-                radial-gradient(900px 600px at 110% 10%, rgba(184,134,59,0.10), transparent 55%),
-                linear-gradient(160deg,#0b140f,#0f1c15 55%,#0b140f);
-    background-attachment: fixed;
-  }
-  .wrap{max-width:760px;margin:0 auto;}
-  .card{
-    background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12);
-    backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
-    border-radius:20px; padding:20px; margin-bottom:14px;
-  }
-  h1{font-size:21px; margin:0 0 4px; font-weight:800;}
-  h2{font-size:15px; margin:0 0 10px; font-weight:700;}
-  .sub{opacity:0.65; font-size:13px; margin:0 0 18px; line-height:1.5;}
-  label{display:block; font-size:12px; opacity:0.75; margin-bottom:6px; margin-top:14px;}
-  input,select{
-    width:100%; padding:12px 14px; border-radius:12px; border:1px solid rgba(255,255,255,0.15);
-    background:rgba(0,0,0,0.25); color:#fff; font-size:15px; font-family:inherit;
-  }
-  input:focus,select:focus{outline:none; border-color:var(--brand);}
-  button{
-    padding:11px 16px; border:none; border-radius:999px;
-    background:var(--brand); color:#fff; font-weight:700; font-size:14px; cursor:pointer;
-    font-family:inherit;
-  }
-  button:hover{background:var(--brand-dark);}
-  button:disabled{opacity:0.5; cursor:default;}
-  button.ghost{background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.18); color:#fff;}
-  button.danger{background:#c0392b;}
-  button.small{padding:7px 12px; font-size:12px;}
-  button.full{width:100%; margin-top:14px;}
-  .err{color:#ff9b9b; font-size:13px; margin-top:10px; min-height:16px;}
-  .ok{color:#7dffc0; font-size:13px; margin-top:10px; min-height:16px;}
-  .topbar{display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; gap:10px; flex-wrap:wrap;}
-  .tabs{display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;}
-  .tab{padding:8px 14px; border-radius:999px; background:rgba(255,255,255,0.07); font-size:13px; cursor:pointer; border:1px solid transparent;}
-  .tab.active{background:var(--brand); font-weight:700;}
-  .priceField{display:flex; justify-content:space-between; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid rgba(255,255,255,0.06);}
-  .priceField label{margin:0; flex:1;}
-  .priceField input{width:130px; text-align:right;}
-  .hidden{display:none !important;}
-  .stat-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
-  .stat{background:rgba(255,255,255,0.05); border-radius:14px; padding:18px; text-align:center;}
-  .stat .num{font-size:26px; font-weight:800; color:#7dffc0;}
-  .stat .lbl{font-size:11px; opacity:0.6; margin-top:4px;}
-  .item-row{display:flex; align-items:center; gap:8px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.06);}
-  .item-row input{flex:1;}
-  .item-row input.price{max-width:100px; text-align:right; flex:none;}
-  .item-row button{flex:none;}
-  .power-badge{font-size:11px; padding:4px 10px; border-radius:999px; background:rgba(46,139,87,0.25); border:1px solid rgba(46,139,87,0.5); color:#a8ffcf; font-weight:700;}
+  :root{ color-scheme: dark; --brand:#2E8B57; --brand2:#257a4b; --line:rgba(255,255,255,.12); --mut:rgba(255,255,255,.62); --bad:#e0574a; --warn:#e8b04a; }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html{scroll-behavior:smooth}
+  body{margin:0;min-height:100vh;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#eef3ef;font-size:15px;line-height:1.45;
+    background:radial-gradient(1100px 560px at 15% -10%,rgba(46,139,87,.24),transparent 60%),radial-gradient(900px 560px at 110% 8%,rgba(184,134,59,.10),transparent 55%),linear-gradient(160deg,#0a130e,#0e1b14 55%,#0a130e);background-attachment:fixed}
+  .wrap{max-width:820px;margin:0 auto;padding:0 14px 90px}
+  header.top{position:sticky;top:0;z-index:30;background:rgba(10,19,14,.86);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+  .top-in{max-width:820px;margin:0 auto;padding:10px 14px 0}
+  .bar{display:flex;align-items:center;gap:10px;justify-content:space-between}
+  .brand{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+  .brand>div{min-width:0}
+  .btn{white-space:nowrap}
+  .brand img{width:34px;height:34px;border-radius:50%;object-fit:cover;border:1px solid var(--line)}
+  .brand b{display:block;font-size:14px;letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .brand small{display:block;color:var(--mut);font-size:11px}
+  .status{font-size:11.5px;font-weight:700;padding:5px 10px;border-radius:999px;border:1px solid var(--line);white-space:nowrap}
+  .status.dirty{background:rgba(232,176,74,.14);border-color:rgba(232,176,74,.5);color:#ffd792}
+  .status.clean{background:rgba(46,139,87,.16);border-color:rgba(46,139,87,.5);color:#a8ffcf}
+  .tabs{display:flex;gap:6px;overflow-x:auto;padding:10px 0 10px;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{flex:none;padding:8px 14px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid transparent;color:#fff;font:inherit;font-size:13px;cursor:pointer}
+  .tab.on{background:var(--brand);font-weight:700}
+  h1{font-size:20px;margin:20px 0 4px}
+  h2{font-size:16px;margin:0 0 4px}
+  h3{font-size:14px;margin:18px 0 6px;color:#cfe9d8}
+  p.sub{color:var(--mut);font-size:13px;margin:0 0 14px}
+  .card{background:rgba(255,255,255,.055);border:1px solid var(--line);border-radius:18px;padding:16px;margin:0 0 12px}
+  .card>h2+p.sub{margin-top:2px}
+  label.f{display:block;margin:12px 0 0}
+  label.f>span{display:block;font-size:12.5px;color:var(--mut);margin-bottom:5px}
+  label.f>small,.hint{display:block;font-size:12px;color:var(--mut);margin-top:5px;opacity:.85}
+  input[type=text],input[type=number],input[type=url],input[type=password],input[type=tel],textarea,select{width:100%;padding:11px 13px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.28);color:#fff;font:inherit;font-size:16px}
+  textarea{resize:vertical;min-height:44px}
+  input:focus,textarea:focus,select:focus{outline:none;border-color:var(--brand)}
+  select{appearance:auto}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .grid4{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  @media(min-width:640px){.grid4{grid-template-columns:repeat(4,1fr)}}
+  @media(max-width:420px){.grid2{grid-template-columns:1fr}}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:11px 18px;border:0;border-radius:999px;background:var(--brand);color:#fff;font:inherit;font-weight:700;font-size:14px;cursor:pointer;text-decoration:none}
+  .btn:hover{background:var(--brand2)}
+  .btn:disabled{opacity:.5;cursor:default}
+  .btn.ghost{background:rgba(255,255,255,.08);border:1px solid var(--line)}
+  .btn.ghost:hover{background:rgba(255,255,255,.14)}
+  .btn.danger{background:var(--bad)}
+  .btn.sm{padding:7px 12px;font-size:12.5px}
+  .btn.full{width:100%;margin-top:12px}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .row.sp{justify-content:space-between}
+  .tg{display:flex;gap:12px;align-items:flex-start;margin:14px 0 0;cursor:pointer}
+  .tg input{position:absolute;opacity:0;pointer-events:none}
+  .tg .sw{flex:none;width:44px;height:26px;border-radius:999px;background:rgba(255,255,255,.18);position:relative;transition:.15s;margin-top:1px}
+  .tg .sw::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.15s}
+  .tg input:checked+.sw{background:var(--brand)}
+  .tg input:checked+.sw::after{left:21px}
+  .tg .tl{font-size:14px}
+  .tg .tl small{display:block;color:var(--mut);font-size:12px;margin-top:2px}
+  details.veh{background:rgba(255,255,255,.055);border:1px solid var(--line);border-radius:18px;margin:0 0 10px;overflow:hidden}
+  details.veh>summary{list-style:none;display:flex;gap:12px;align-items:center;padding:12px 14px;cursor:pointer}
+  details.veh>summary::-webkit-details-marker{display:none}
+  details.veh[open]>summary{border-bottom:1px solid var(--line);background:rgba(255,255,255,.04)}
+  .vthumb{flex:none;width:58px;height:58px;border-radius:12px;background:rgba(255,255,255,.08);object-fit:cover;display:flex;align-items:center;justify-content:center;font-size:24px}
+  .vmeta{min-width:0;flex:1}
+  .vmeta b{display:block;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .vmeta small{color:var(--mut);font-size:12px}
+  .pill{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(232,176,74,.16);border:1px solid rgba(232,176,74,.5);color:#ffd792;margin-left:6px;vertical-align:middle}
+  .chev{flex:none;opacity:.6;transition:.15s}
+  details[open]>summary .chev{transform:rotate(180deg)}
+  .vbody{padding:4px 14px 16px}
+  .photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px;margin-top:8px}
+  .ph{position:relative;border-radius:12px;overflow:hidden;background:rgba(255,255,255,.07);aspect-ratio:4/3;border:1px solid var(--line)}
+  .ph img{width:100%;height:100%;object-fit:cover;display:block}
+  .ph .n{position:absolute;left:6px;top:6px;font-size:10.5px;font-weight:700;background:rgba(0,0,0,.65);padding:2px 7px;border-radius:999px}
+  .ph .acts{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-between;gap:4px;padding:5px;background:linear-gradient(to top,rgba(0,0,0,.75),transparent)}
+  .ph .acts button{border:0;border-radius:8px;background:rgba(255,255,255,.2);color:#fff;font-size:14px;padding:5px 9px;cursor:pointer;line-height:1}
+  .ph .acts button.x{background:rgba(224,87,74,.85)}
+  .addph{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;border:2px dashed rgba(255,255,255,.28);border-radius:12px;aspect-ratio:4/3;cursor:pointer;color:var(--mut);font-size:12.5px;text-align:center;padding:6px}
+  .addph:hover{border-color:var(--brand);color:#fff}
+  .addph b{font-size:22px;line-height:1;color:#fff}
+  .imgrow{display:flex;gap:12px;align-items:center}
+  .thumb{width:96px;height:72px;border-radius:12px;object-fit:cover;background:rgba(255,255,255,.07);border:1px solid var(--line);flex:none}
+  .thumb.empty{display:flex;align-items:center;justify-content:center;color:var(--mut);font-size:11px}
+  .imgbtns{display:flex;gap:8px;flex-wrap:wrap}
+  .item{display:flex;gap:8px;align-items:flex-start;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.07)}
+  .item:last-child{border-bottom:0}
+  .item .grow{flex:1;min-width:0}
+  .mini{display:flex;gap:6px;flex:none}
+  .mini button{width:34px;height:34px;padding:0;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.08);color:#fff;font-size:14px;cursor:pointer}
+  .mini button.x{background:rgba(224,87,74,.85);border-color:transparent}
+  .block{background:rgba(0,0,0,.2);border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-top:10px}
+  .block .bh{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:var(--mut)}
+  .sec{border:1px solid var(--line);border-radius:16px;padding:12px 14px;margin:0 0 12px;background:rgba(255,255,255,.03)}
+  .sec .sh{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .sec .sh b{font-size:14px}
+  .msg{border-radius:12px;padding:11px 13px;font-size:13.5px;margin-top:12px}
+  .msg.ok{background:rgba(46,139,87,.16);border:1px solid rgba(46,139,87,.5);color:#b9ffd9}
+  .msg.err{background:rgba(224,87,74,.14);border:1px solid rgba(224,87,74,.5);color:#ffc0b8}
+  .msg.info{background:rgba(255,255,255,.06);border:1px solid var(--line);color:#dfe8e2}
+  ol.steps{margin:8px 0 0;padding-left:20px;color:#dfe8e2;font-size:13.5px}
+  ol.steps li{margin:5px 0}
+  code{background:rgba(255,255,255,.1);padding:1px 6px;border-radius:6px;font-size:12.5px}
+  a{color:#8fe3b4}
+  #busy{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:20px}
+  #busy.on{display:flex}
+  #busy .box{background:#14231a;border:1px solid var(--line);border-radius:18px;padding:22px 24px;max-width:360px;width:100%;text-align:center}
+  .spin{width:30px;height:30px;border-radius:50%;border:3px solid rgba(255,255,255,.2);border-top-color:#8fe3b4;margin:0 auto 12px;animation:sp .8s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);z-index:120;background:#1c3325;border:1px solid rgba(46,139,87,.6);color:#d7ffe8;padding:11px 18px;border-radius:999px;font-size:13.5px;font-weight:600;opacity:0;pointer-events:none;transition:.2s;max-width:90vw;text-align:center}
+  #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+  #toast.err{background:#3a1c19;border-color:rgba(224,87,74,.6);color:#ffd2cc}
+  input[type=range]{width:100%;accent-color:var(--brand)}
+  .pubbar{position:fixed;left:0;right:0;bottom:0;z-index:25;background:rgba(10,19,14,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid var(--line);padding:10px 14px;display:none}
+  .pubbar.on{display:block}
+  .pubbar .in{max-width:820px;margin:0 auto;display:flex;gap:10px;align-items:center;justify-content:space-between}
+  .pubbar span{font-size:13px;color:#ffd792}
 </style>
 </head>
 <body>
-<div class="wrap">
-
-  <div id="loginView">
-    <div class="card" style="text-align:center;">
-      <div style="font-size:40px;">🌿</div>
-      <h1 style="margin-top:8px;">Shining Bike Rental</h1>
-      <p class="sub">Super Admin Dashboard — full control over prices, items, and site content.</p>
-      <label style="text-align:left;">Password</label>
-      <input type="password" id="loginPassword" placeholder="Admin password" onkeydown="if(event.key==='Enter')doLogin()"/>
-      <button class="full" onclick="doLogin()">Log In</button>
-      <div class="err" id="loginErr"></div>
-      <p class="sub" style="margin:14px 0 0;font-size:11px;">Default password: <b>ChangeMe@2024</b> — change it under Settings after logging in. This is a client-side gate only (no server), so treat it as keeping casual visitors out, not real security.</p>
+<header class="top"><div class="top-in">
+  <div class="bar">
+    <div class="brand"><img id="brandLogo" src="logo.png" alt=""><div><b id="brandName">Admin Dashboard</b><small>Admin Dashboard</small></div></div>
+    <div class="row" style="gap:8px;flex-wrap:nowrap">
+      <span class="status clean" id="status">Loading…</span>
+      <a class="btn ghost sm" href="index.html" target="_blank" rel="noopener" aria-label="View the website">Site ↗</a>
     </div>
   </div>
+  <nav class="tabs" id="tabs"></nav>
+</div></header>
 
-  <div id="appView" class="hidden">
-    <div class="topbar">
-      <div>
-        <h1>🌿 Super Admin</h1>
-        <span class="power-badge">Full control — no backend</span>
-      </div>
-      <button class="ghost small" onclick="logout()">Log Out</button>
-    </div>
+<div class="wrap"><main id="view"></main></div>
 
-    <div class="tabs">
-      <div class="tab active" data-tab="prices" onclick="switchTab('prices')">💰 Prices</div>
-      <div class="tab" data-tab="items" onclick="switchTab('items')">🍢 Items</div>
-      <div class="tab" data-tab="content" onclick="switchTab('content')">✏️ Content</div>
-      <div class="tab" data-tab="visitors" onclick="switchTab('visitors')">📊 Visitors</div>
-      <div class="tab" data-tab="bookings" onclick="switchTab('bookings')">📖 Bookings</div>
-      <div class="tab" data-tab="settings" onclick="switchTab('settings')">⚙️ Settings</div>
-    </div>
+<div class="pubbar" id="pubbar"><div class="in"><span>● You have unpublished changes</span><button class="btn sm" data-act="publish">Publish now</button></div></div>
+<div id="busy"><div class="box"><div class="spin"></div><div id="busyMsg">Working…</div></div></div>
+<div id="toast"></div>
 
-    <!-- PRICES -->
-    <div id="tab-prices">
-      <div class="card">
-        <h2>Shared Tour</h2>
-        <div class="priceField"><label>Per person (₹)</label><input type="number" id="p_sharedTour_perPerson"></div>
-        <div class="priceField"><label>Lunch thali price (₹)</label><input type="number" id="p_sharedTour_lunchThaliPrice"></div>
-      </div>
-      <div class="card">
-        <h2>Private Package</h2>
-        <div class="priceField"><label>4x4 Jeep (₹)</label><input type="number" id="p_privatePackage_jeep"></div>
-        <div class="priceField"><label>Local guide (₹)</label><input type="number" id="p_privatePackage_guide"></div>
-        <div class="priceField"><label>Adventure (per person, ₹)</label><input type="number" id="p_privatePackage_adventurePerPerson"></div>
-        <div class="priceField"><label>Lunch thali price (₹)</label><input type="number" id="p_privatePackage_lunchThaliPrice"></div>
-        <div class="priceField"><label>Camping tent (₹)</label><input type="number" id="p_privatePackage_campingTent"></div>
-        <div class="priceField"><label>Camping meals (per person, ₹)</label><input type="number" id="p_privatePackage_campingMealsPerPerson"></div>
-        <div class="priceField"><label>Overnight guide (₹)</label><input type="number" id="p_privatePackage_overnightGuide"></div>
-      </div>
-      <div class="card">
-        <h2>Other</h2>
-        <div class="priceField"><label>Child free age (below this = free)</label><input type="number" id="p_childFreeAge"></div>
-        <div class="priceField"><label>Minimum advance payment (₹)</label><input type="number" id="p_minAdvance"></div>
-      </div>
-      <button class="full" onclick="savePrices()">Save Prices — Live Instantly</button>
-      <div class="ok" id="pricesOk"></div>
-      <div class="err" id="pricesErr"></div>
-    </div>
-
-    <!-- ITEMS -->
-    <div id="tab-items" class="hidden">
-      <div class="card">
-        <h2>Bamboo Menu (Camping add-ons)</h2>
-        <p class="sub" style="margin:0 0 6px;">Add, rename, reprice, or remove any item. Changes apply to every package that uses this menu.</p>
-        <div id="bambooList"></div>
-        <button class="ghost full" onclick="addBambooItem()">+ Add Item</button>
-      </div>
-      <div class="card">
-        <h2>Thali Types</h2>
-        <p class="sub" style="margin:0 0 6px;">Used for lunch selection on Shared Tour and Private Package.</p>
-        <div id="thaliList"></div>
-        <button class="ghost full" onclick="addThaliItem()">+ Add Thali Type</button>
-      </div>
-      <button class="full" onclick="saveItems()">Save Items — Live Instantly</button>
-      <div class="ok" id="itemsOk"></div>
-      <div class="err" id="itemsErr"></div>
-    </div>
-
-    <!-- CONTENT -->
-    <div id="tab-content" class="hidden">
-      <div class="card">
-        <h2>Site Identity</h2>
-        <label>Site Name</label><input type="text" id="c_siteName">
-        <label>Site Subtitle</label><input type="text" id="c_siteSub">
-        <label>Instagram Link</label><input type="text" id="c_instagram">
-      </div>
-      <div class="card">
-        <h2>Booking &amp; Payment Contact</h2>
-        <label>WhatsApp Number (digits only, with country code)</label><input type="text" id="c_whatsapp">
-        <label>UPI ID</label><input type="text" id="c_upiId">
-        <label>Bank Account Name</label><input type="text" id="c_bankName">
-        <label>Bank Account Number</label><input type="text" id="c_bankAccount">
-        <label>IFSC Code</label><input type="text" id="c_bankIfsc">
-        <label>Bank Name / Branch</label><input type="text" id="c_bankBankName">
-      </div>
-      <button class="full" onclick="saveContent()">Save Content — Live Instantly</button>
-      <div class="ok" id="contentOk"></div>
-      <div class="err" id="contentErr"></div>
-    </div>
-
-    <!-- VISITORS -->
-    <div id="tab-visitors" class="hidden">
-      <div class="card">
-        <h2>Visitor Counter</h2>
-        <p class="sub" style="margin:0 0 12px;">Every visit to the site (in this browser) bumps this counter by one. The same number is used as the reference code (e.g. #0007) in every WhatsApp booking message sent from this device.</p>
-        <div class="stat-grid">
-          <div class="stat"><div class="num" id="visitorCount">0</div><div class="lbl">Total Visits (this device)</div></div>
-        </div>
-        <button class="ghost full" onclick="resetVisitorCount()">Reset Counter to 0000</button>
-      </div>
-    </div>
-
-    <!-- BOOKINGS -->
-    <div id="tab-bookings" class="hidden">
-      <div class="card">
-        <h2>Bookings</h2>
-        <p class="sub" style="margin:0 0 12px;">Every booking submitted from this device. WhatsApp doesn't report back automatically — update the status here after you confirm with the guest on WhatsApp.</p>
-        <div class="stat-grid" style="margin-bottom:14px;">
-          <div class="stat"><div class="num" id="bookingsTotal">0</div><div class="lbl">Total Bookings</div></div>
-          <div class="stat"><div class="num" id="bookingsPending">0</div><div class="lbl">Pending</div></div>
-        </div>
-        <div id="bookingsList"></div>
-        <button class="ghost full" onclick="exportBookingsCsv()">⬇ Export CSV</button>
-        <button class="full" onclick="saveBookings()">Save Changes</button>
-        <div class="ok" id="bookingsOk"></div>
-        <div class="err" id="bookingsErr"></div>
-      </div>
-      <div class="card">
-        <h2 style="color:#ff9b9b;">Clear All Bookings</h2>
-        <p class="sub" style="margin:0 0 12px;">Deletes every booking record on this device. This cannot be undone.</p>
-        <button class="danger full" onclick="clearAllBookings()">Delete All Bookings</button>
-        <div class="ok" id="bookingsClearOk"></div>
-      </div>
-    </div>
-
-    <!-- SETTINGS -->
-    <div id="tab-settings" class="hidden">
-      <div class="card">
-        <h2>Change Admin Password</h2>
-        <label>New password (min 6 characters)</label>
-        <input type="password" id="newPassword"/>
-        <button class="full" onclick="changePassword()">Update Password</button>
-        <div class="ok" id="settingsOk"></div>
-        <div class="err" id="settingsErr"></div>
-      </div>
-      <div class="card">
-        <h2 style="color:#ff9b9b;">Danger Zone</h2>
-        <p class="sub" style="margin:0 0 12px;">Resets prices, items, and content back to the defaults built into the site, and clears the visitor counter. This cannot be undone.</p>
-        <button class="danger full" onclick="resetEverything()">Reset Everything to Defaults</button>
-        <div class="ok" id="dangerOk"></div>
-      </div>
-    </div>
-
-  </div>
-</div>
-
+<script>window.showConfigError=function(m){try{console.warn(m)}catch(e){}};</script>
+<script src="config.js"></script>
 <script>
-  // --------------------------------------------------------------------
-  // Storage keys — must match the ones app.js reads on the main site.
-  // --------------------------------------------------------------------
-  var PRICES_KEY = 'kc_admin_prices';
-  var CONTENT_KEY = 'kc_admin_content';
-  var VISITOR_KEY = 'kc_visitor_seq';
-  var BOOKINGS_KEY = 'kc_bookings';
-  var BOOKING_STATUSES = ['pending', 'confirmed', 'paid', 'cancelled'];
-  var PASS_HASH_KEY = 'kc_admin_pass_hash';
-  var SESSION_KEY = 'kc_admin_session';
-  var DEFAULT_PASSWORD = 'ChangeMe@2024';
+(function () {
+"use strict";
 
-  // Same defaults as index.html's window.KC_PRICES, duplicated here since
-  // this page is opened standalone (no shared build step / bundler).
-  var DEFAULT_THALI_TYPES = [
-    { id: 'veg', name: 'Veg Thali' },
-    { id: 'chicken', name: 'Chicken Thali' },
-    { id: 'pork', name: 'Pork Thali' }
-  ];
-  var DEFAULT_PRICES = {
-    sharedTour: { perPerson: 2600, lunchThaliPrice: 380, thaliTypes: JSON.parse(JSON.stringify(DEFAULT_THALI_TYPES)) },
-    privatePackage: { jeep: 4000, guide: 1500, adventurePerPerson: 1500, lunchThaliPrice: 380, campingTent: 1000, campingMealsPerPerson: 380, overnightGuide: 2000, thaliTypes: JSON.parse(JSON.stringify(DEFAULT_THALI_TYPES)) },
-    childFreeAge: 10,
-    minAdvance: 500
+/* =====================================================================
+   0. Tiny helpers
+   ===================================================================== */
+function $(s, r) { return (r || document).querySelector(s); }
+function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+function clone(o) { return JSON.parse(JSON.stringify(o)); }
+function isObj(v) { return v !== null && typeof v === "object" && !Array.isArray(v); }
+function isOn(v, d) { if (v === false || v === "false") return false; if (v === true || v === "true") return true; return d; }
+function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+function deepMerge(base, over) {
+  if (over === undefined || over === null) return base;
+  if (Array.isArray(over)) return clone(over);
+  if (!isObj(over)) return over;
+  var out = {};
+  if (isObj(base)) { for (var k in base) out[k] = base[k]; }
+  for (var k2 in over) out[k2] = deepMerge(out[k2], over[k2]);
+  return out;
+}
+function getPath(o, p) { var parts = p.split("."); for (var i = 0; i < parts.length; i++) { if (o == null) return undefined; o = o[parts[i]]; } return o; }
+function setPath(o, p, v) { var parts = p.split("."); for (var i = 0; i < parts.length - 1; i++) { if (o[parts[i]] == null) o[parts[i]] = {}; o = o[parts[i]]; } o[parts[parts.length - 1]] = v; }
+function uid(prefix) { return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 5); }
+function slug(s) { return String(s || "").toLowerCase().replace(/\.[a-z0-9]+$/, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 28) || "file"; }
+function money(n) { return "₹" + Number(n || 0).toLocaleString("en-IN"); }
+
+/* =====================================================================
+   1. Defaults (from config.js) + model <-> site content conversion
+   ===================================================================== */
+var CFG = window.KC_CONTENT || {};
+var CFG_PRICES = (window.KC_PRICES && window.KC_PRICES.vehicleRental && window.KC_PRICES.vehicleRental.vehicles) || {};
+var NAV_KINDS = { home: "Home", vehicles: "Vehicles section", terms: "Rental Terms page", contact: "Contact / footer", whatsapp: "Open WhatsApp chat", url: "Open a web link" };
+
+function normPrices(p) {
+  p = p || {};
+  return { "6": Number(p["6"]) || 0, "12": Number(p["12"]) || 0, "24": Number(p["24"]) || 0, deposit: Number(p.deposit) || 0 };
+}
+
+function navToModel(item) {
+  if (typeof item === "string") { var k = item.trim().toLowerCase(); return { label: item, kind: NAV_KINDS[k] && k !== "whatsapp" && k !== "url" ? k : "vehicles", url: "" }; }
+  item = item || {};
+  if (item.url) return { label: item.label || "", kind: "url", url: item.url };
+  if (item.whatsapp) return { label: item.label || "", kind: "whatsapp", url: "" };
+  var t = String(item.target || "").toLowerCase();
+  return { label: item.label || "", kind: (t === "home" || t === "vehicles" || t === "terms" || t === "contact") ? t : "vehicles", url: "" };
+}
+
+function contentToModel(C) {
+  C = C || {};
+  var hero = C.hero || {}, bg = (C.background && C.background.global) || {}, ov = bg.overlay || {};
+  var ui = C.ui || {}, nt = C.notice || {}, an = C.announcement || {}, vr = C.vehicleRental || {};
+  var rp = C.refundPolicy || {}, rw = rp.whatsapp || {}, ft = C.footer || {};
+  return {
+    siteName: C.siteName || "", siteSub: C.siteSub || "", logoImage: C.logoImage || "",
+    whatsappNumber: C.whatsappNumber || "", instagram: C.instagram || "",
+    hero: { badge: hero.badge || "", title: hero.title || "", sub: hero.sub || "", quote: hero.quote || "", bookNowLabel: hero.bookNowLabel || "", discoverLabel: hero.discoverLabel || "" },
+    bg: {
+      videoEnabled: isOn(bg.videoEnabled, true),
+      videoUrl: bg.videoUrl || hero.videoUrl || "",
+      fallbackImage: bg.fallbackImage || hero.fallbackImage || "",
+      overlay: isOn(ov.enabled, true) ? (ov.opacity != null ? Number(ov.opacity) : 40) : 0
+    },
+    nav: ((C.nav && C.nav.items) || []).map(navToModel),
+    ui: { bookNow: ui.bookNow || "", backToHome: ui.backToHome || "", adminLinkLabel: ui.adminLinkLabel || "Admin", showAdminLink: isOn(ui.showAdminLink, true) },
+    notice: { enabled: isOn(nt.enabled, false), title: nt.title || "", subtitle: nt.subtitle || "", text: nt.text || "", buttonText: nt.buttonText || "", showAgain: nt.showAgain || "" },
+    announcement: { enabled: isOn(an.enabled, false), text: an.text || "" },
+    vehicleRental: {
+      title: vr.title || "", subtitle: vr.subtitle || "", operatingHoursNote: vr.operatingHoursNote || "",
+      searchPlaceholder: vr.searchPlaceholder || "", noResultsTitle: vr.noResultsTitle || "", noResultsText: vr.noResultsText || "",
+      clearSearchLabel: vr.clearSearchLabel || "", rentNowLabel: vr.rentNowLabel || "", depositLabel: vr.depositLabel || "", photosComingSoon: vr.photosComingSoon || "",
+      vehicles: (vr.vehicles || []).map(function (v) {
+        return {
+          id: v.id || uid("v"), name: v.name || "", description: v.description || "", details: v.details || "", badge: v.badge || "",
+          features: (v.features || []).slice(),
+          images: ((v.images && v.images.length) ? v.images : (v.image ? [v.image] : [])).filter(Boolean),
+          visible: isOn(v.visible, true),
+          prices: normPrices(v.prices || CFG_PRICES[v.id])
+        };
+      })
+    },
+    rentalForm: Object.assign({}, C.rentalForm || {}),
+    rentalPolicy: { sections: ((C.rentalPolicy && C.rentalPolicy.sections) || []).map(function (s) {
+      return { heading: s.heading || "", blocks: (s.blocks || []).map(function (b) {
+        return b.type === "list" ? { type: "list", lead: b.lead || "", items: (b.items || []).slice() } : { type: "text", text: b.text || "" };
+      }) };
+    }) },
+    refundPolicy: { title: rp.title || "", intro: rp.intro || "", whatsapp: {
+      buttonLabel: rw.buttonLabel || "", referenceLabel: rw.referenceLabel || "", referencePlaceholder: rw.referencePlaceholder || "",
+      referenceHelperNote: rw.referenceHelperNote || "", referenceMissingError: rw.referenceMissingError || "", message: rw.message || "" } },
+    footer: { brandName: ft.brandName || "", locationLine: ft.locationLine || "", contactTitle: ft.contactTitle || "", phone: ft.phone || "", email: ft.email || "",
+      followTitle: ft.followTitle || "", importantLinkTitle: ft.importantLinkTitle || "", refundPolicyLabel: ft.refundPolicyLabel || "", copyright: ft.copyright || "" }
   };
-  var DEFAULT_BAMBOO_MENU = [
-    { id: 'chicken500', name: 'Fresh Bamboo Chicken (500g)', price: 699 },
-    { id: 'chicken1kg', name: 'Fresh Bamboo Chicken (1kg)', price: 890 },
-    { id: 'pork500', name: 'Fresh Bamboo Pork (500g)', price: 799 },
-    { id: 'pork1kg', name: 'Fresh Bamboo Pork (1kg)', price: 1000 },
-    { id: 'porkbelly500', name: 'Roasted Pork Belly Salad (500g)', price: 599 },
-    { id: 'porkbelly1kg', name: 'Roasted Pork Belly Salad (1kg)', price: 900 },
-    { id: 'fish', name: 'Boiled Fish (Zero Oil)', price: 250 },
-    { id: 'vegsabji', name: 'Veg Bamboo Sabji', price: 300 },
-    { id: 'egg', name: 'Boiled Egg', price: 20 },
-    { id: 'chai', name: 'Bamboo Chai', price: 20 }
-  ];
-  var DEFAULT_CONTENT = {
-    siteName: 'SHINING BIKE RENTAL', siteSub: 'BIKE & SCOOTER RENTAL',
-    instagram: '', whatsappNumber: '916001877518', upiId: 'kremchympe@upi',
-    bank: { name: 'Krem Chympe Adventure', account: '123456789012', ifsc: '', bankName: 'SBI, Cherrapunji Branch' }
+}
+
+function modelToContent(m) {
+  var nav = m.nav.map(function (n) {
+    var label = String(n.label || "").trim() || "Link";
+    if (n.kind === "whatsapp") return { label: label, whatsapp: true };
+    if (n.kind === "url") return { label: label, url: String(n.url || "").trim() };
+    return { label: label, target: n.kind };
+  });
+  var rf = {};
+  Object.keys(m.rentalForm || {}).forEach(function (k) { if (String(m.rentalForm[k] || "").trim() !== "") rf[k] = m.rentalForm[k]; });
+  var seen = {};
+  var vehicles = m.vehicleRental.vehicles.map(function (v) {
+    var id = v.id; while (seen[id]) id = uid("v"); seen[id] = 1;
+    return {
+      id: id, name: String(v.name || "").trim(), type: String(v.name || "").trim(),
+      description: v.description || "", details: v.details || "", badge: v.badge || "",
+      features: (v.features || []).map(function (f) { return String(f).trim(); }).filter(Boolean),
+      images: (v.images || []).filter(Boolean),
+      visible: v.visible !== false,
+      prices: normPrices(v.prices)
+    };
+  });
+  var vr = clone(m.vehicleRental); vr.vehicles = vehicles;
+  var bgOn = Number(m.bg.overlay) > 0;
+  var content = {
+    siteName: m.siteName, siteSub: m.siteSub, logoImage: m.logoImage,
+    whatsappNumber: String(m.whatsappNumber || "").replace(/\D/g, ""), instagram: m.instagram,
+    hero: { badge: m.hero.badge, title: m.hero.title, sub: m.hero.sub, quote: m.hero.quote, bookNowLabel: m.hero.bookNowLabel, discoverLabel: m.hero.discoverLabel,
+            videoEnabled: !!m.bg.videoEnabled, videoUrl: m.bg.videoUrl, fallbackImage: m.bg.fallbackImage },
+    background: { global: { videoEnabled: !!m.bg.videoEnabled, videoUrl: m.bg.videoUrl, fallbackImage: m.bg.fallbackImage, overlay: { enabled: bgOn, opacity: Number(m.bg.overlay) || 0 } } },
+    nav: { items: nav, mobileItems: clone(nav) },
+    ui: { bookNow: m.ui.bookNow, backToHome: m.ui.backToHome, adminLinkLabel: m.ui.adminLinkLabel, showAdminLink: !!m.ui.showAdminLink },
+    notice: { enabled: !!m.notice.enabled, title: m.notice.title, subtitle: m.notice.subtitle, text: m.notice.text, buttonText: m.notice.buttonText, showAgain: m.notice.showAgain },
+    announcement: { enabled: !!m.announcement.enabled, text: m.announcement.text },
+    vehicleRental: vr,
+    rentalForm: rf,
+    rentalPolicy: { sections: m.rentalPolicy.sections.map(function (s, i) {
+      return { number: i + 1, heading: s.heading, blocks: s.blocks.map(function (b) {
+        if (b.type === "list") { var o = { type: "list", items: (b.items || []).map(function (x) { return String(x).trim(); }).filter(Boolean) }; if (String(b.lead || "").trim()) o.lead = b.lead; return o; }
+        return { text: b.text || "" };
+      }) };
+    }) },
+    refundPolicy: clone(m.refundPolicy),
+    footer: clone(m.footer)
   };
+  if (m.bg.fallbackImage) content.backgrounds = [m.bg.fallbackImage, m.bg.fallbackImage];
+  return content;
+}
 
-  // --------------------------------------------------------------------
-  // Tiny non-cryptographic hash — this is a client-only gate with no
-  // server to verify against, so a lightweight hash (rather than
-  // crypto.subtle, which requires a secure context) keeps this working
-  // even opened over plain http:// or file://. Not real security either
-  // way — see the note on the login screen.
-  // --------------------------------------------------------------------
-  function simpleHash(str) {
-    var h = 5381;
-    for (var i = 0; i < str.length; i++) { h = ((h * 33) ^ str.charCodeAt(i)) >>> 0; }
-    return h.toString(16);
-  }
+/* =====================================================================
+   2. State
+   ===================================================================== */
+var published = null;      // parsed site-data.json currently live (or null)
+var M = null;              // the working model
+var baseline = "";         // JSON string of content at last publish/load
+var pending = {};          // path -> { blob, mime, uploaded }
+var urlCache = {};
+var tab = "vehicles";
+var openVeh = {};
+var GH_KEY = "kc_admin_github_v1";
+var gh = loadGh();
+var liveMsg = "";
 
-  function getJSON(key, fallback) {
-    try { var raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
-    catch (e) { return fallback; }
-  }
-  function setJSON(key, value) { localStorage.setItem(key, JSON.stringify(value)); }
+function loadGh() { try { return Object.assign({ repo: "", branch: "", folder: "", token: "" }, JSON.parse(localStorage.getItem(GH_KEY) || "{}")); } catch (e) { return { repo: "", branch: "", folder: "", token: "" }; } }
+function saveGh() { try { localStorage.setItem(GH_KEY, JSON.stringify(gh)); } catch (e) {} }
 
-  // --------------------------------------------------------------------
-  // AUTH
-  // --------------------------------------------------------------------
-  function doLogin() {
-    var password = document.getElementById('loginPassword').value;
-    var storedHash = localStorage.getItem(PASS_HASH_KEY) || simpleHash(DEFAULT_PASSWORD);
-    document.getElementById('loginErr').textContent = '';
-    if (simpleHash(password) === storedHash) {
-      sessionStorage.setItem(SESSION_KEY, '1');
-      showApp();
-    } else {
-      document.getElementById('loginErr').textContent = 'Incorrect password.';
-    }
-  }
+/* =====================================================================
+   3. Media — compress photos, keep them in memory until publish
+   ===================================================================== */
+function mediaUrl(p) {
+  if (!p) return "";
+  if (pending[p]) { if (!urlCache[p]) urlCache[p] = URL.createObjectURL(pending[p].blob); return urlCache[p]; }
+  if (/^(https?:|data:|blob:)/i.test(p)) return p;
+  return encodeURI(p);
+}
+function newPath(name, ext) { return "uploads/" + slug(name) + "-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5) + "." + ext; }
 
-  function logout() {
-    sessionStorage.removeItem(SESSION_KEY);
-    document.getElementById('appView').classList.add('hidden');
-    document.getElementById('loginView').classList.remove('hidden');
-  }
+function compressImage(file, keepAlpha) {
+  return new Promise(function (resolve, reject) {
+    var url = URL.createObjectURL(file), img = new Image();
+    img.onload = function () {
+      URL.revokeObjectURL(url);
+      var w = img.naturalWidth, h = img.naturalHeight, sc = Math.min(1, 1600 / Math.max(w, h));
+      w = Math.max(1, Math.round(w * sc)); h = Math.max(1, Math.round(h * sc));
+      var c = document.createElement("canvas"); c.width = w; c.height = h;
+      var ctx = c.getContext("2d");
+      var png = !!keepAlpha;
+      if (!png) { ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, w, h); }
+      ctx.drawImage(img, 0, 0, w, h);
+      c.toBlob(function (b) {
+        if (!b) return reject(new Error("Couldn't process \"" + file.name + "\"."));
+        resolve({ blob: b, ext: png ? "png" : "jpg", mime: png ? "image/png" : "image/jpeg" });
+      }, png ? "image/png" : "image/jpeg", 0.82);
+    };
+    img.onerror = function () { URL.revokeObjectURL(url); reject(new Error("Couldn't read \"" + file.name + "\" as a picture. Please use a JPG or PNG.")); };
+    img.src = url;
+  });
+}
 
-  function showApp() {
-    document.getElementById('loginView').classList.add('hidden');
-    document.getElementById('appView').classList.remove('hidden');
-    loadPrices();
-    loadItems();
-    loadContent();
-    loadVisitors();
-    loadBookings();
-  }
+async function storeImage(file, keepAlpha) {
+  var r = await compressImage(file, !!keepAlpha && /png|webp|gif|svg/i.test(file.type));
+  var p = newPath(file.name, r.ext);
+  pending[p] = { blob: r.blob, mime: r.mime, uploaded: false };
+  return p;
+}
+async function storeVideo(file) {
+  if (!/mp4/i.test(file.type) && !/\.mp4$/i.test(file.name)) throw new Error("Please choose an MP4 video.");
+  if (file.size > 40 * 1024 * 1024) throw new Error("That video is " + Math.round(file.size / 1048576) + " MB. Please use one under 40 MB (try compressing it first).");
+  var p = newPath(file.name, "mp4");
+  pending[p] = { blob: file, mime: "video/mp4", uploaded: false };
+  return p;
+}
 
-  function switchTab(name) {
-    ['prices', 'items', 'content', 'visitors', 'bookings', 'settings'].forEach(function (t) {
-      document.getElementById('tab-' + t).classList.toggle('hidden', t !== name);
-    });
-    document.querySelectorAll('.tabs .tab').forEach(function (el) {
-      el.classList.toggle('active', el.getAttribute('data-tab') === name);
-    });
-  }
+/* =====================================================================
+   4. Draft autosave (IndexedDB) — survives closing the tab
+   ===================================================================== */
+function idb() {
+  return new Promise(function (res, rej) {
+    if (!window.indexedDB) return rej(new Error("no idb"));
+    var r = indexedDB.open("kc-admin", 1);
+    r.onupgradeneeded = function () { r.result.createObjectStore("kv"); };
+    r.onsuccess = function () { res(r.result); };
+    r.onerror = function () { rej(r.error); };
+  });
+}
+function idbOp(mode, fn) {
+  return idb().then(function (db) { return new Promise(function (res, rej) {
+    var tx = db.transaction("kv", mode), st = tx.objectStore("kv"), rq = fn(st);
+    tx.oncomplete = function () { res(rq && rq.result); }; tx.onerror = function () { rej(tx.error); }; tx.onabort = function () { rej(tx.error); };
+  }); });
+}
+function draftGet() { return idbOp("readonly", function (s) { return s.get("draft"); }).catch(function () { return null; }); }
+function draftSet(v) { return idbOp("readwrite", function (s) { return s.put(v, "draft"); }).catch(function () {}); }
+function draftDel() { return idbOp("readwrite", function (s) { return s.delete("draft"); }).catch(function () {}); }
 
-  // --------------------------------------------------------------------
-  // PRICES
-  // --------------------------------------------------------------------
-  var PRICE_PATHS = [
-    ['sharedTour', 'perPerson'], ['sharedTour', 'lunchThaliPrice'],
-    ['privatePackage', 'jeep'], ['privatePackage', 'guide'], ['privatePackage', 'adventurePerPerson'], ['privatePackage', 'lunchThaliPrice'],
-    ['privatePackage', 'campingTent'], ['privatePackage', 'campingMealsPerPerson'], ['privatePackage', 'overnightGuide']
-  ];
+var saveTimer = null;
+function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(saveDraftNow, 700); }
+function saveDraftNow() {
+  if (!M) return Promise.resolve();
+  if (!isDirty()) return draftDel();
+  var list = [];
+  var json = JSON.stringify(modelToContent(M));
+  Object.keys(pending).forEach(function (p) { if (!pending[p].uploaded && json.indexOf('"' + p + '"') !== -1) list.push({ path: p, blob: pending[p].blob, mime: pending[p].mime }); });
+  return draftSet({ model: clone(M), pending: list, baseUpdatedAt: published && published.updatedAt || null, savedAt: Date.now() });
+}
 
-  function currentPrices() {
-    var stored = getJSON(PRICES_KEY, null);
-    var base = JSON.parse(JSON.stringify(DEFAULT_PRICES));
-    base.bambooMenu = JSON.parse(JSON.stringify(DEFAULT_BAMBOO_MENU));
-    if (stored) {
-      ['sharedTour', 'privatePackage'].forEach(function (k) { if (stored[k]) Object.assign(base[k], stored[k]); });
-      if (stored.childFreeAge !== undefined) base.childFreeAge = stored.childFreeAge;
-      if (stored.minAdvance !== undefined) base.minAdvance = stored.minAdvance;
-      if (stored.bambooMenu) base.bambooMenu = stored.bambooMenu;
-    }
-    return base;
-  }
+/* =====================================================================
+   5. Dirty tracking + status
+   ===================================================================== */
+function referenced(path) { return JSON.stringify(modelToContent(M)).indexOf('"' + path + '"') !== -1; }
+function isDirty() {
+  if (!M) return false;
+  var json = JSON.stringify(modelToContent(M));
+  if (json !== baseline) return true;
+  return Object.keys(pending).some(function (p) { return !pending[p].uploaded && json.indexOf('"' + p + '"') !== -1; });
+}
+function refreshStatus() {
+  var d = isDirty(), s = $("#status");
+  s.className = "status " + (d ? "dirty" : "clean");
+  s.textContent = d ? "● Unpublished" : "✓ Published";
+  $("#pubbar").classList.toggle("on", d && tab !== "publish");
+  document.body.style.paddingBottom = d && tab !== "publish" ? "56px" : "0";
+  $("#brandName").textContent = (M && M.siteName) || "Admin Dashboard";
+}
+function changed() { refreshStatus(); scheduleSave(); }
+window.addEventListener("beforeunload", function (e) { if (isDirty()) { e.preventDefault(); e.returnValue = ""; } });
+document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") saveDraftNow(); });
 
-  function loadPrices() {
-    var prices = currentPrices();
-    PRICE_PATHS.forEach(function (p) {
-      var el = document.getElementById('p_' + p[0] + '_' + p[1]);
-      if (el) el.value = prices[p[0]][p[1]];
-    });
-    document.getElementById('p_childFreeAge').value = prices.childFreeAge;
-    document.getElementById('p_minAdvance').value = prices.minAdvance;
-  }
+/* =====================================================================
+   6. UI helpers
+   ===================================================================== */
+var toastTimer = null;
+function toast(msg, bad) { var t = $("#toast"); t.textContent = msg; t.className = (bad ? "err " : "") + "on"; clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.className = ""; }, bad ? 6000 : 3200); }
+function busy(msg) { $("#busyMsg").textContent = msg; $("#busy").classList.add("on"); }
+function busyDone() { $("#busy").classList.remove("on"); }
 
-  function savePrices() {
-    document.getElementById('pricesOk').textContent = '';
-    document.getElementById('pricesErr').textContent = '';
+function F(label, path, o) {
+  o = o || {}; var v = getPath(M, path); if (v == null) v = "";
+  var hint = o.hint ? "<small>" + o.hint + "</small>" : "", ctl;
+  if (o.area) ctl = '<textarea data-b="' + path + '" rows="' + (o.rows || 3) + '" placeholder="' + esc(o.ph || "") + '">' + esc(v) + "</textarea>";
+  else if (o.type === "number") ctl = '<input type="number" data-b="' + path + '" data-n="1" inputmode="numeric" min="0" value="' + esc(v) + '" placeholder="' + esc(o.ph || "") + '">';
+  else ctl = '<input type="' + (o.type || "text") + '" data-b="' + path + '"' + (o.type === "tel" ? ' inputmode="tel"' : "") + ' value="' + esc(v) + '" placeholder="' + esc(o.ph || "") + '" autocomplete="off">';
+  return '<label class="f"><span>' + label + "</span>" + ctl + hint + "</label>";
+}
+function T(label, path, hint) {
+  return '<label class="tg"><input type="checkbox" data-b="' + path + '"' + (getPath(M, path) ? " checked" : "") + '><span class="sw"></span><span class="tl">' + label + (hint ? "<small>" + hint + "</small>" : "") + "</span></label>";
+}
+function L(label, path, o) {
+  o = o || {}; var arr = getPath(M, path) || [];
+  return '<label class="f"><span>' + label + '</span><textarea data-l="' + path + '" rows="' + (o.rows || 4) + '" placeholder="' + esc(o.ph || "") + '">' + esc(arr.join("\n")) + "</textarea>" + (o.hint ? "<small>" + o.hint + "</small>" : "") + "</label>";
+}
+function IMG(label, path, o) {
+  o = o || {}; var v = getPath(M, path) || "";
+  return '<div class="f"><span style="display:block;font-size:12.5px;color:var(--mut);margin-bottom:5px">' + label + '</span><div class="imgrow">' +
+    (v ? '<img class="thumb" src="' + esc(mediaUrl(v)) + '" alt="">' : '<div class="thumb empty">No image</div>') +
+    '<div class="imgbtns"><label class="btn sm ghost">' + (v ? "Replace" : "Choose photo") + '<input type="file" accept="image/*" hidden data-up="one" data-path="' + path + '"' + (o.png ? ' data-alpha="1"' : "") + "></label>" +
+    (v ? '<button class="btn sm ghost" data-act="clear-media" data-path="' + path + '">Remove</button>' : "") + "</div></div>" +
+    (o.hint ? '<small class="hint">' + o.hint + "</small>" : "") + "</div>";
+}
+function VID(label, path, hint) {
+  var v = getPath(M, path) || "";
+  return '<div class="f"><span style="display:block;font-size:12.5px;color:var(--mut);margin-bottom:5px">' + label + '</span><div class="imgrow">' +
+    (v ? '<video class="thumb" src="' + esc(mediaUrl(v)) + '" muted playsinline preload="metadata"></video>' : '<div class="thumb empty">No video</div>') +
+    '<div class="imgbtns"><label class="btn sm ghost">' + (v ? "Replace video" : "Choose video") + '<input type="file" accept="video/mp4" hidden data-up="video" data-path="' + path + '"></label>' +
+    (v ? '<button class="btn sm ghost" data-act="clear-media" data-path="' + path + '">Remove</button>' : "") + "</div></div>" +
+    '<small class="hint">' + (v ? "Current file: <code>" + esc(v) + "</code>. " : "") + (hint || "") + "</small></div>";
+}
+
+/* =====================================================================
+   7. Views
+   ===================================================================== */
+var TABS = [["vehicles", "🏍️ Vehicles"], ["home", "🏠 Home page"], ["menu", "🔗 Menu & footer"], ["form", "📝 Rental form"], ["terms", "📜 Rental terms"], ["notices", "📢 Notices"], ["publish", "🚀 Publish"]];
+var VIEWS = {};
+
+function vehCard(v, i) {
+  var pfx = "vehicleRental.vehicles." + i + ".", p = v.prices;
+  var thumb = v.images[0] ? '<img class="vthumb" src="' + esc(mediaUrl(v.images[0])) + '" alt="">' : '<div class="vthumb">🏍️</div>';
+  var priceLine = [p["6"], p["12"], p["24"]].map(function (x) { return x ? money(x) : "—"; }).join(" · ");
+  var h = '<details class="veh" data-vid="' + esc(v.id) + '" data-i="' + i + '"' + (openVeh[v.id] ? " open" : "") + "><summary>" + thumb +
+    '<div class="vmeta"><b><span class="vname">' + esc(v.name || "Untitled vehicle") + "</span>" + (v.visible ? "" : '<span class="pill">Hidden</span>') + "</b><small>" + priceLine + " · " + v.images.length + " photo" + (v.images.length === 1 ? "" : "s") + '</small></div><span class="chev">▾</span></summary><div class="vbody">';
+  h += F("Name", pfx + "name", { ph: "e.g. Honda Activa 6G" });
+  h += F("Tag (optional)", pfx + "badge", { ph: "e.g. Popular", hint: "A small label shown next to the name." });
+  h += F("Short description", pfx + "description", { area: 1, rows: 2 });
+  h += F("More details (optional)", pfx + "details", { area: 1, rows: 3, hint: "An extra paragraph shown under the description." });
+  h += L("Highlights (optional)", pfx + "features", { rows: 3, ph: "One per line, e.g.\nHelmet included\nAutomatic gear", hint: "One per line — shown as a tick list." });
+  h += "<h3>Prices (₹)</h3>";
+  h += '<div class="grid4">' + F("6 hours", pfx + "prices.6", { type: "number" }) + F("12 hours", pfx + "prices.12", { type: "number" }) + F("24 hours", pfx + "prices.24", { type: "number" }) + F("Deposit", pfx + "prices.deposit", { type: "number" }) + "</div>";
+  h += '<small class="hint">Leave a plan at 0 to hide it for this vehicle. Deposit is the refundable security deposit.</small>';
+  h += "<h3>Photos</h3>";
+  h += '<div class="photos">' + v.images.map(function (src, j) {
+    return '<div class="ph"><img src="' + esc(mediaUrl(src)) + '" alt=""><span class="n">' + (j === 0 ? "Cover" : (j + 1)) + '</span><div class="acts">' +
+      '<button data-act="img-left" data-i="' + i + '" data-j="' + j + '"' + (j === 0 ? ' disabled style="opacity:.3"' : "") + ' aria-label="Move earlier">◀</button>' +
+      '<button class="x" data-act="img-del" data-i="' + i + '" data-j="' + j + '" aria-label="Remove photo">✕</button>' +
+      '<button data-act="img-right" data-i="' + i + '" data-j="' + j + '"' + (j === v.images.length - 1 ? ' disabled style="opacity:.3"' : "") + ' aria-label="Move later">▶</button></div></div>';
+  }).join("") + '<label class="addph"><b>＋</b>Add photos<input type="file" accept="image/*" multiple hidden data-up="veh" data-i="' + i + '"></label></div>';
+  h += '<small class="hint">Add as many photos as you like — visitors can swipe through them. The first one is the cover. Photos are resized automatically.</small>';
+  h += T("Show on website", pfx + "visible", "Turn off to hide this vehicle without deleting it.");
+  h += '<div class="row" style="margin-top:16px">' +
+    '<button class="btn sm ghost" data-act="veh-up" data-i="' + i + '"' + (i === 0 ? " disabled" : "") + '>↑ Move up</button>' +
+    '<button class="btn sm ghost" data-act="veh-down" data-i="' + i + '"' + (i === M.vehicleRental.vehicles.length - 1 ? " disabled" : "") + '>↓ Move down</button>' +
+    '<button class="btn sm ghost" data-act="veh-dup" data-i="' + i + '">Duplicate</button>' +
+    '<button class="btn sm danger" data-act="veh-del" data-i="' + i + '">Delete</button></div>';
+  return h + "</div></details>";
+}
+VIEWS.vehicles = function () {
+  var vs = M.vehicleRental.vehicles;
+  return '<h1>Vehicles</h1><p class="sub">Every bike and scooter on your website. Tap one to edit its name, prices, photos and details.</p>' +
+    (vs.map(vehCard).join("") || '<div class="card"><p class="sub" style="margin:0">No vehicles yet — add your first one below. (With no visible vehicles the whole “Rent” section is hidden.)</p></div>') +
+    '<button class="btn full" data-act="add-vehicle">＋ Add a vehicle</button>';
+};
+
+VIEWS.home = function () {
+  var h = "<h1>Home page</h1><p class=\"sub\">The top of your website and the wording around the vehicle list.</p>";
+  h += '<div class="card"><h2>Site name & logo</h2>' + F("Site name", "siteName") + F("Tagline under the name", "siteSub") +
+    IMG("Logo", "logoImage", { png: 1, hint: "Shown in the top bar. A square PNG with a transparent background looks best." }) + "</div>";
+  h += '<div class="card"><h2>Big intro at the top</h2>' + F("Small badge text", "hero.badge") + F("Headline", "hero.title", { hint: "The first two words sit on the first line; the rest appear softer underneath." }) +
+    F("Paragraph", "hero.sub", { area: 1, rows: 3 }) + F("Quote on the video (optional)", "hero.quote") +
+    '<div class="grid2">' + F("Main button", "hero.bookNowLabel", { ph: "View Vehicles" }) + F("“Discover” label", "hero.discoverLabel", { ph: "Discover" }) + "</div>" +
+    F("Button in the top menu", "ui.bookNow", { ph: "View Vehicles" }) + "</div>";
+  h += '<div class="card"><h2>Background</h2>' + T("Play the background video", "bg.videoEnabled", "Turn off to show only the still picture (uses less data on slow phones).") +
+    VID("Background video", "bg.videoUrl", "MP4, up to 40 MB. Keep it short and compressed so the site loads fast.") +
+    IMG("Still picture (shown before/instead of the video)", "bg.fallbackImage") +
+    '<label class="f"><span>Darkness over the background: <b id="ovVal">' + Number(M.bg.overlay) + '%</b></span><input type="range" min="0" max="80" step="5" data-b="bg.overlay" data-n="1" data-show="ovVal" value="' + Number(M.bg.overlay) + '"><small>Higher = darker, easier to read the text.</small></label></div>';
+  h += '<div class="card"><h2>Vehicle list section</h2>' + F("Section title", "vehicleRental.title") + F("Sub-title", "vehicleRental.subtitle", { area: 1, rows: 2 }) + F("Opening hours note", "vehicleRental.operatingHoursNote", { hint: "Shown under the sub-title and in the rental form. Leave empty to hide." }) +
+    '<div class="grid2">' + F("Search box hint", "vehicleRental.searchPlaceholder") + F("“Rent” button", "vehicleRental.rentNowLabel") + F("Deposit label", "vehicleRental.depositLabel") + F("No-photo text", "vehicleRental.photosComingSoon") + "</div>" +
+    '<div class="grid2">' + F("“Nothing found” title", "vehicleRental.noResultsTitle", { hint: "The searched word is added after it." }) + F("“Clear search” button", "vehicleRental.clearSearchLabel") + "</div>" +
+    F("“Nothing found” help text", "vehicleRental.noResultsText") + "</div>";
+  return h;
+};
+
+VIEWS.menu = function () {
+  var h = '<h1>Menu & footer</h1><p class="sub">The links in the top menu, your contact details and the footer.</p>';
+  h += '<div class="card"><h2>Menu links</h2><p class="sub">These appear in the top bar and the phone menu, in this order.</p>';
+  h += M.nav.map(function (n, i) {
+    return '<div class="item"><div class="grow">' + F("Label", "nav." + i + ".label") +
+      '<label class="f"><span>Goes to</span><select data-b="nav.' + i + '.kind" data-rerender="1">' + Object.keys(NAV_KINDS).map(function (k) { return '<option value="' + k + '"' + (n.kind === k ? " selected" : "") + ">" + NAV_KINDS[k] + "</option>"; }).join("") + "</select></label>" +
+      (n.kind === "url" ? F("Web link", "nav." + i + ".url", { type: "url", ph: "https://…" }) : "") + "</div>" +
+      '<div class="mini"><button data-act="nav-up" data-i="' + i + '"' + (i === 0 ? " disabled" : "") + ' aria-label="Move up">↑</button><button data-act="nav-down" data-i="' + i + '"' + (i === M.nav.length - 1 ? " disabled" : "") + ' aria-label="Move down">↓</button><button class="x" data-act="nav-del" data-i="' + i + '" aria-label="Delete">✕</button></div></div>';
+  }).join("") || '<p class="sub">No menu links.</p>';
+  h += '<button class="btn ghost full" data-act="nav-add">＋ Add a link</button></div>';
+  h += '<div class="card"><h2>Contact & social</h2>' + F("WhatsApp number (for rental requests)", "whatsappNumber", { type: "tel", ph: "916001877518", hint: "Digits only, with country code and no + sign. Every rental request opens a chat with this number." }) +
+    F("Instagram link", "instagram", { type: "url", ph: "https://www.instagram.com/…" }) + "</div>";
+  h += '<div class="card"><h2>Footer</h2>' + F("Business name", "footer.brandName") + F("Address", "footer.locationLine", { area: 1, rows: 2 }) +
+    '<div class="grid2">' + F("Phone", "footer.phone", { type: "tel" }) + F("Email", "footer.email") + "</div>" +
+    '<div class="grid2">' + F("“Contact” heading", "footer.contactTitle") + F("“Follow” heading", "footer.followTitle") + F("“Links” heading", "footer.importantLinkTitle") + F("Terms link text", "footer.refundPolicyLabel") + "</div>" +
+    F("Copyright line", "footer.copyright") + "</div>";
+  h += '<div class="card"><h2>Other</h2>' + F("“Back to home” button text", "ui.backToHome") +
+    T("Show an “Admin” link in the phone menu", "ui.showAdminLink", "You can always reach this dashboard by adding <code>/admin.html</code> to your site address, so this can stay off.") +
+    F("Admin link text", "ui.adminLinkLabel") + "</div>";
+  return h;
+};
+
+var RF_GROUPS = [
+  ["Window title & steps", [["titleSuffix", "Text after the vehicle name"], ["stepLabel", "Step counter", "", "Use {n} for the step number, e.g. STEP {n} OF 4"], ["step1Title", "Step 1 title"], ["step2Title", "Step 2 title"], ["step3Title", "Step 3 title"], ["step4Title", "Step 4 title"]]],
+  ["Rental plans", [["plan6", "6-hour plan name"], ["plan12", "12-hour plan name"], ["plan24", "24-hour plan name"], ["planLabel", "“Rental plan” field label"]]],
+  ["Step 1 — schedule", [["destinationLabel", "Destination label"], ["destinationPlaceholder", "Destination example text"], ["pickupDateLabel", "Pick-up date label"], ["pickupTimeLabel", "Pick-up time label"], ["dropDateLabel", "Drop-off date label"], ["dropTimeLabel", "Drop-off time label"], ["estimateTitle", "Estimate box title"], ["estimateFeeLabel", "Rental fee line"], ["estimateDepositLabel", "Deposit line"], ["estimateTotalLabel", "Total line"]]],
+  ["Step 2 — your details", [["nameLabel", "Name label"], ["namePlaceholder", "Name example text"], ["phoneLabel", "Phone label"], ["phonePlaceholder", "Phone example text"], ["emailLabel", "Email label"], ["emailPlaceholder", "Email example text"], ["licenseLabel", "Licence number label"], ["addressLabel", "Address label"], ["detailsNote", "Note under the form", "area"]]],
+  ["Steps 3 & 4 — terms and agreement", [["termsIntro", "Line above the terms"], ["agreeTerms", "Tick box 1"], ["agreeAge", "Tick box 2"], ["agreeFuel", "Tick box 3"]]],
+  ["Buttons", [["backLabel", "Back button"], ["nextLabel", "Next button"], ["submitLabel", "Final submit button"], ["closeLabel", "Close button"]]],
+  ["After sending", [["sentTitle", "Title"], ["sentText", "Message", "area"]]],
+  ["Error messages", [["errSchedule", "Schedule missing"], ["errDropAfterPickup", "Drop-off before pick-up"], ["errDetails", "Details missing"], ["errAgree", "Tick boxes missing"]]],
+  ["The WhatsApp message", [["whatsappTitle", "First line of the message"], ["whatsappConfirmLine", "Last line (confirmation)", "area"]]]
+];
+VIEWS.form = function () {
+  var h = '<h1>Rental form</h1><p class="sub">Every word inside the “Rent Now” window. If you clear a box, the standard wording is used again.</p>';
+  RF_GROUPS.forEach(function (g) {
+    h += '<div class="card"><h2>' + g[0] + "</h2>" + g[1].map(function (f) {
+      return F(f[1], "rentalForm." + f[0], { area: f[2] === "area", rows: 3, ph: (CFG.rentalForm || {})[f[0]] || "", hint: f[3] || "" });
+    }).join("") + "</div>";
+  });
+  return h;
+};
+
+VIEWS.terms = function () {
+  var secs = M.rentalPolicy.sections;
+  var h = '<h1>Rental terms</h1><p class="sub">Shown to renters in the form (steps 3–4) and on the “Rental Terms” page. Numbers are added automatically.</p>';
+  h += secs.map(function (s, si) {
+    var pfx = "rentalPolicy.sections." + si + ".";
+    return '<div class="sec"><div class="sh"><b>Section ' + (si + 1) + '</b><div class="mini"><button data-act="sec-up" data-i="' + si + '"' + (si === 0 ? " disabled" : "") + ' aria-label="Move up">↑</button><button data-act="sec-down" data-i="' + si + '"' + (si === secs.length - 1 ? " disabled" : "") + ' aria-label="Move down">↓</button><button class="x" data-act="sec-del" data-i="' + si + '" aria-label="Delete section">✕</button></div></div>' +
+      F("Heading", pfx + "heading") +
+      s.blocks.map(function (b, bi) {
+        var bp = pfx + "blocks." + bi + ".";
+        return '<div class="block"><div class="bh"><span>' + (b.type === "list" ? "Bullet list" : "Paragraph") + '</span><div class="mini"><button data-act="blk-up" data-i="' + si + '" data-j="' + bi + '"' + (bi === 0 ? " disabled" : "") + ' aria-label="Move up">↑</button><button data-act="blk-down" data-i="' + si + '" data-j="' + bi + '"' + (bi === s.blocks.length - 1 ? " disabled" : "") + ' aria-label="Move down">↓</button><button class="x" data-act="blk-del" data-i="' + si + '" data-j="' + bi + '" aria-label="Delete">✕</button></div></div>' +
+          (b.type === "list" ? F("Line before the list (optional)", bp + "lead") + L("Bullet points", bp + "items", { rows: 4, hint: "One bullet per line." }) : F("Text", bp + "text", { area: 1, rows: 3 })) + "</div>";
+      }).join("") +
+      '<div class="row" style="margin-top:10px"><button class="btn sm ghost" data-act="blk-add-text" data-i="' + si + '">＋ Paragraph</button><button class="btn sm ghost" data-act="blk-add-list" data-i="' + si + '">＋ Bullet list</button></div></div>';
+  }).join("");
+  h += '<button class="btn ghost full" data-act="sec-add">＋ Add a section</button>';
+  h += '<div class="card" style="margin-top:14px"><h2>“Rental Terms” page</h2>' + F("Page title", "refundPolicy.title") + F("Intro paragraph", "refundPolicy.intro", { area: 1, rows: 3 }) + "</div>";
+  h += '<div class="card"><h2>Cancellation chat box (bottom of that page)</h2>' + F("Button text", "refundPolicy.whatsapp.buttonLabel") + F("Reference field label", "refundPolicy.whatsapp.referenceLabel") +
+    F("Reference example text", "refundPolicy.whatsapp.referencePlaceholder") + F("Help text under the field", "refundPolicy.whatsapp.referenceHelperNote", { area: 1, rows: 2 }) +
+    F("Message if reference is empty", "refundPolicy.whatsapp.referenceMissingError", { area: 1, rows: 2 }) +
+    F("WhatsApp message", "refundPolicy.whatsapp.message", { area: 1, rows: 6, hint: "Keep <code>{referenceNumber}</code> where the visitor’s reference should go." }) + "</div>";
+  return h;
+};
+
+VIEWS.notices = function () {
+  return '<h1>Notices</h1><p class="sub">Tell visitors something important.</p>' +
+    '<div class="card"><h2>Pop-up notice</h2><p class="sub">A window that appears once when someone opens the home page.</p>' + T("Show the pop-up", "notice.enabled") +
+    F("Title", "notice.title", { ph: "PUBLIC NOTICE" }) + F("Sub-title (optional)", "notice.subtitle") + F("Message", "notice.text", { area: 1, rows: 5 }) + F("Button text", "notice.buttonText", { ph: "Got it" }) +
+    F("Show again to everyone (optional)", "notice.showAgain", { hint: "Visitors who already closed the pop-up won’t see it again — unless you change this word/number (for example to <code>2</code>) when you publish a new notice." }) + "</div>" +
+    '<div class="card"><h2>Announcement bar</h2><p class="sub">A slim green strip at the very top of the page (for example “Closed on Sunday”).</p>' + T("Show the announcement bar", "announcement.enabled") + F("Text", "announcement.text") + "</div>";
+};
+
+VIEWS.publish = function () {
+  var d = isDirty(), connected = !!gh.token;
+  var h = '<h1>Publish</h1><p class="sub">Send your changes to the live website so every visitor sees them.</p>';
+  h += '<div class="card"><h2>' + (d ? "You have unpublished changes" : "Everything is published") + "</h2>" +
+    '<p class="sub" style="margin:4px 0 0">' + (d ? "Your edits are saved in this browser as a draft, but visitors won’t see them until you publish." : "The live website matches this dashboard.") + "</p>" +
+    '<button class="btn full" data-act="publish"' + "" + ">🚀 Publish to the live site</button>" +
+    '<div id="liveMsg">' + (liveMsg || "") + "</div>" +
+    (connected ? "" : '<div class="msg info">To publish, connect your GitHub account below first (one-time setup, about 2 minutes).</div>') + "</div>";
+  h += '<div class="card"><h2>GitHub connection</h2><p class="sub">Your website lives in a GitHub repository. This dashboard saves your changes there. Your access token stays in this browser only.</p>' +
+    '<label class="f"><span>Repository</span><input type="text" data-gh="repo" value="' + esc(gh.repo) + '" placeholder="your-username/your-repository" autocapitalize="off" autocomplete="off"></label>' +
+    '<div class="grid2"><label class="f"><span>Branch</span><input type="text" data-gh="branch" value="' + esc(gh.branch) + '" placeholder="main" autocapitalize="off"></label>' +
+    '<label class="f"><span>Folder of the website</span><input type="text" data-gh="folder" value="' + esc(gh.folder) + '" placeholder="(leave empty if at the top)" autocapitalize="off"></label></div>' +
+    '<label class="f"><span>Access token</span><input type="password" data-gh="token" value="' + esc(gh.token) + '" placeholder="github_pat_…" autocomplete="off" autocapitalize="off"></label>' +
+    '<div class="row" style="margin-top:12px"><button class="btn" data-act="gh-test">Save & test connection</button>' + (connected ? '<button class="btn ghost" data-act="gh-off">Disconnect</button>' : "") + "</div>" +
+    '<div id="ghMsg"></div>' +
+    '<details style="margin-top:14px"><summary style="cursor:pointer;color:#8fe3b4;font-size:13.5px">How do I get a token?</summary><ol class="steps">' +
+    '<li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub → Settings → Fine-grained tokens → Generate new token</a>.</li>' +
+    "<li>Give it any name and choose an expiry (e.g. 1 year).</li>" +
+    "<li><b>Repository access</b>: “Only select repositories” → pick your website repository.</li>" +
+    "<li><b>Permissions → Repository permissions → Contents</b>: set to <b>Read and write</b>.</li>" +
+    "<li>Generate, copy the token (it starts with <code>github_pat_</code>) and paste it above.</li>" +
+    "<li>Only use this on your own phone/computer. Anyone who has this token can change your site, so keep it private — you can revoke it any time on GitHub.</li></ol></details></div>";
+  h += '<div class="card"><h2>Backup & manual upload</h2><p class="sub">Not using GitHub Pages? Download the update and upload it to your web host yourself: unzip it and copy everything into your website folder (replace <code>site-data.json</code>).</p>' +
+    '<div class="row"><button class="btn ghost" data-act="dl-zip">⬇ Download update (.zip)</button><button class="btn ghost" data-act="dl-json">⬇ site-data.json only</button>' +
+    '<label class="btn ghost">⬆ Import site-data.json<input type="file" accept=".json,application/json" hidden data-up="import"></label></div></div>';
+  h += '<div class="card"><h2>Undo</h2><div class="row"><button class="btn ghost" data-act="discard"' + (d ? "" : " disabled") + '>Discard unpublished changes</button><button class="btn danger" data-act="reset-defaults">Reset everything to built-in defaults</button></div>' +
+    '<p class="sub" style="margin:10px 0 0">“Reset” loads the original wording, prices and photos from config.js into the dashboard. Nothing changes on the live site until you publish.</p></div>';
+  return h;
+};
+
+/* =====================================================================
+   8. Render + tabs
+   ===================================================================== */
+function renderTabs() {
+  $("#tabs").innerHTML = TABS.map(function (t) { return '<button class="tab' + (t[0] === tab ? " on" : "") + '" data-tab="' + t[0] + '">' + t[1] + "</button>"; }).join("");
+}
+function render(keepScroll) {
+  var y = window.scrollY;
+  $("#view").innerHTML = M ? VIEWS[tab]() : "";
+  renderTabs(); refreshStatus();
+  if (keepScroll) window.scrollTo(0, y); else window.scrollTo(0, 0);
+}
+function setTab(t) { tab = t; render(false); }
+
+/* =====================================================================
+   9. Actions
+   ===================================================================== */
+var ACT = {};
+function swap(arr, i, j) { if (j < 0 || j >= arr.length) return; var t = arr[i]; arr[i] = arr[j]; arr[j] = t; }
+function vehs() { return M.vehicleRental.vehicles; }
+
+ACT["add-vehicle"] = function () {
+  var v = { id: uid("v"), name: "New vehicle", description: "", details: "", badge: "", features: [], images: [], visible: true, prices: { "6": 0, "12": 0, "24": 0, deposit: 0 } };
+  vehs().push(v); openVeh[v.id] = true; changed(); render(true);
+  setTimeout(function () { var el = document.querySelector('[data-vid="' + v.id + '"]'); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60);
+};
+ACT["veh-up"] = function (a) { var i = +a.dataset.i; swap(vehs(), i, i - 1); changed(); render(true); };
+ACT["veh-down"] = function (a) { var i = +a.dataset.i; swap(vehs(), i, i + 1); changed(); render(true); };
+ACT["veh-dup"] = function (a) { var v = clone(vehs()[+a.dataset.i]); v.id = uid("v"); v.name = (v.name || "Vehicle") + " (copy)"; vehs().splice(+a.dataset.i + 1, 0, v); openVeh[v.id] = true; changed(); render(true); };
+ACT["veh-del"] = function (a) { var v = vehs()[+a.dataset.i]; if (!confirm("Delete “" + (v.name || "this vehicle") + "” from your website? (You can undo this before publishing with “Discard unpublished changes”.)")) return; vehs().splice(+a.dataset.i, 1); changed(); render(true); };
+ACT["img-left"] = function (a) { var im = vehs()[+a.dataset.i].images, j = +a.dataset.j; swap(im, j, j - 1); changed(); render(true); };
+ACT["img-right"] = function (a) { var im = vehs()[+a.dataset.i].images, j = +a.dataset.j; swap(im, j, j + 1); changed(); render(true); };
+ACT["img-del"] = function (a) { vehs()[+a.dataset.i].images.splice(+a.dataset.j, 1); changed(); render(true); };
+ACT["clear-media"] = function (a) { setPath(M, a.dataset.path, ""); changed(); render(true); };
+ACT["nav-add"] = function () { M.nav.push({ label: "New link", kind: "vehicles", url: "" }); changed(); render(true); };
+ACT["nav-up"] = function (a) { var i = +a.dataset.i; swap(M.nav, i, i - 1); changed(); render(true); };
+ACT["nav-down"] = function (a) { var i = +a.dataset.i; swap(M.nav, i, i + 1); changed(); render(true); };
+ACT["nav-del"] = function (a) { M.nav.splice(+a.dataset.i, 1); changed(); render(true); };
+ACT["sec-add"] = function () { M.rentalPolicy.sections.push({ heading: "New section", blocks: [{ type: "text", text: "" }] }); changed(); render(true); };
+ACT["sec-up"] = function (a) { var i = +a.dataset.i; swap(M.rentalPolicy.sections, i, i - 1); changed(); render(true); };
+ACT["sec-down"] = function (a) { var i = +a.dataset.i; swap(M.rentalPolicy.sections, i, i + 1); changed(); render(true); };
+ACT["sec-del"] = function (a) { if (!confirm("Delete this whole section of the terms?")) return; M.rentalPolicy.sections.splice(+a.dataset.i, 1); changed(); render(true); };
+ACT["blk-add-text"] = function (a) { M.rentalPolicy.sections[+a.dataset.i].blocks.push({ type: "text", text: "" }); changed(); render(true); };
+ACT["blk-add-list"] = function (a) { M.rentalPolicy.sections[+a.dataset.i].blocks.push({ type: "list", lead: "", items: [""] }); changed(); render(true); };
+ACT["blk-up"] = function (a) { var b = M.rentalPolicy.sections[+a.dataset.i].blocks, j = +a.dataset.j; swap(b, j, j - 1); changed(); render(true); };
+ACT["blk-down"] = function (a) { var b = M.rentalPolicy.sections[+a.dataset.i].blocks, j = +a.dataset.j; swap(b, j, j + 1); changed(); render(true); };
+ACT["blk-del"] = function (a) { M.rentalPolicy.sections[+a.dataset.i].blocks.splice(+a.dataset.j, 1); changed(); render(true); };
+
+ACT["publish"] = function () { publish(); };
+ACT["gh-test"] = function () { ghTest(); };
+ACT["gh-off"] = function () { if (!confirm("Remove the saved GitHub token from this browser?")) return; gh.token = ""; saveGh(); render(true); toast("Disconnected."); };
+ACT["dl-json"] = function () { download(new Blob([siteDataText(new Date().toISOString())], { type: "application/json" }), "site-data.json"); };
+ACT["dl-zip"] = function () {
+  var enc = new TextEncoder(), json = JSON.stringify(modelToContent(M)), files = [{ name: "site-data.json", data: enc.encode(siteDataText(new Date().toISOString())) }];
+  var jobs = Object.keys(pending).filter(function (p) { return json.indexOf('"' + p + '"') !== -1; }).map(function (p) {
+    return pending[p].blob.arrayBuffer().then(function (buf) { files.push({ name: p, data: new Uint8Array(buf) }); });
+  });
+  busy("Building the zip…");
+  Promise.all(jobs).then(function () { download(makeZip(files), "website-update.zip"); toast("Downloaded. Unzip it into your website folder."); }).catch(function (e) { toast(e.message, true); }).then(busyDone);
+};
+ACT["discard"] = function () {
+  if (!confirm("Throw away all changes you haven't published yet?")) return;
+  M = contentToModel(deepMerge(CFG, published ? published.content : {}));
+  Object.keys(pending).forEach(function (p) { if (!pending[p].uploaded) delete pending[p]; });
+  draftDel(); changed(); render(true); toast("Back to what's published.");
+};
+ACT["reset-defaults"] = function () {
+  if (!confirm("Load the ORIGINAL built-in wording, prices and photos from config.js into the dashboard?\n\nYour current edits will be replaced (visitors won't see any change until you publish).")) return;
+  M = contentToModel(CFG); changed(); render(true); toast("Defaults loaded — publish to apply them.");
+};
+
+function siteDataText(updatedAt) { return JSON.stringify({ schema: 1, updatedAt: updatedAt, content: modelToContent(M) }, null, 2) + "\n"; }
+function download(blob, name) { var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000); }
+
+function importJson(file) {
+  var r = new FileReader();
+  r.onload = function () {
     try {
-      var prices = currentPrices();
-      PRICE_PATHS.forEach(function (p) {
-        var el = document.getElementById('p_' + p[0] + '_' + p[1]);
-        if (el) prices[p[0]][p[1]] = Number(el.value);
-      });
-      prices.childFreeAge = Number(document.getElementById('p_childFreeAge').value);
-      prices.minAdvance = Number(document.getElementById('p_minAdvance').value);
-      setJSON(PRICES_KEY, prices);
-      document.getElementById('pricesOk').textContent = 'Saved — live on the site immediately (same browser).';
-    } catch (e) { document.getElementById('pricesErr').textContent = e.message; }
-  }
+      var d = JSON.parse(r.result);
+      if (!isObj(d) || !isObj(d.content)) throw new Error("That doesn't look like a site-data.json file.");
+      M = contentToModel(deepMerge(CFG, d.content)); changed(); render(false); toast("Imported — review it, then publish.");
+    } catch (e) { toast(e.message || "Couldn't read that file.", true); }
+  };
+  r.readAsText(file);
+}
 
-  // --------------------------------------------------------------------
-  // ITEMS (bamboo menu + thali types)
-  // --------------------------------------------------------------------
-  var bambooMenu = [];
-  var thaliTypes = [];
-
-  function slugify(name) {
-    return (name || '').toLowerCase().replace(/[^a-z0-9]+/g, '') || ('item' + Date.now());
-  }
-
-  function loadItems() {
-    var prices = currentPrices();
-    bambooMenu = prices.bambooMenu || JSON.parse(JSON.stringify(DEFAULT_BAMBOO_MENU));
-    thaliTypes = (prices.sharedTour && prices.sharedTour.thaliTypes) || JSON.parse(JSON.stringify(DEFAULT_THALI_TYPES));
-    renderBamboo();
-    renderThali();
-  }
-
-  function renderBamboo() {
-    var el = document.getElementById('bambooList');
-    el.innerHTML = bambooMenu.map(function (item, i) {
-      return '<div class="item-row">' +
-        '<input type="text" value="' + escapeAttr(item.name) + '" oninput="bambooMenu[' + i + '].name=this.value">' +
-        '<input type="number" class="price" value="' + item.price + '" oninput="bambooMenu[' + i + '].price=Number(this.value)">' +
-        '<button class="danger small" onclick="removeBambooItem(' + i + ')">✕</button>' +
-        '</div>';
-    }).join('') || '<p class="sub" style="margin:0;">No items yet.</p>';
-  }
-
-  function renderThali() {
-    var el = document.getElementById('thaliList');
-    el.innerHTML = thaliTypes.map(function (item, i) {
-      return '<div class="item-row">' +
-        '<input type="text" value="' + escapeAttr(item.name) + '" oninput="thaliTypes[' + i + '].name=this.value">' +
-        '<button class="danger small" onclick="removeThaliItem(' + i + ')">✕</button>' +
-        '</div>';
-    }).join('') || '<p class="sub" style="margin:0;">No thali types yet.</p>';
-  }
-
-  function addBambooItem() { bambooMenu.push({ id: 'item' + Date.now(), name: 'New Item', price: 0 }); renderBamboo(); }
-  function removeBambooItem(i) { bambooMenu.splice(i, 1); renderBamboo(); }
-  function addThaliItem() { thaliTypes.push({ id: 'thali' + Date.now(), name: 'New Thali' }); renderThali(); }
-  function removeThaliItem(i) { thaliTypes.splice(i, 1); renderThali(); }
-
-  function escapeAttr(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
-
-  function saveItems() {
-    document.getElementById('itemsOk').textContent = '';
-    document.getElementById('itemsErr').textContent = '';
-    try {
-      bambooMenu.forEach(function (item) { item.id = item.id || slugify(item.name); });
-      thaliTypes.forEach(function (item) { item.id = item.id || slugify(item.name); });
-      var prices = currentPrices();
-      prices.bambooMenu = bambooMenu;
-      // Same thali list is shared by both packages that offer lunch thalis.
-      prices.sharedTour.thaliTypes = thaliTypes;
-      prices.privatePackage.thaliTypes = thaliTypes;
-      setJSON(PRICES_KEY, prices);
-      document.getElementById('itemsOk').textContent = 'Saved — live on the site immediately (same browser).';
-    } catch (e) { document.getElementById('itemsErr').textContent = e.message; }
-  }
-
-  // --------------------------------------------------------------------
-  // CONTENT
-  // --------------------------------------------------------------------
-  function currentContent() {
-    var stored = getJSON(CONTENT_KEY, null);
-    var base = JSON.parse(JSON.stringify(DEFAULT_CONTENT));
-    if (stored) {
-      Object.assign(base, stored);
-      if (stored.bank) Object.assign(base.bank, stored.bank);
+async function handleUpload(mode, files, ds) {
+  if (!files.length) return;
+  if (mode === "import") return importJson(files[0]);
+  busy(mode === "video" ? "Adding video…" : files.length > 1 ? "Processing photos…" : "Processing photo…");
+  try {
+    if (mode === "one") setPath(M, ds.path, await storeImage(files[0], !!ds.alpha));
+    else if (mode === "video") setPath(M, ds.path, await storeVideo(files[0]));
+    else if (mode === "veh") {
+      var v = vehs()[+ds.i], errs = [];
+      for (var k = 0; k < files.length; k++) { try { v.images.push(await storeImage(files[k], false)); } catch (er) { errs.push(er.message); } }
+      if (errs.length) toast(errs[0], true);
     }
-    return base;
-  }
+    changed(); render(true);
+  } catch (err) { toast(err.message || "Upload failed.", true); }
+  finally { busyDone(); }
+}
 
-  function loadContent() {
-    var c = currentContent();
-    document.getElementById('c_siteName').value = c.siteName;
-    document.getElementById('c_siteSub').value = c.siteSub;
-    document.getElementById('c_instagram').value = c.instagram;
-    document.getElementById('c_whatsapp').value = c.whatsappNumber;
-    document.getElementById('c_upiId').value = c.upiId;
-    document.getElementById('c_bankName').value = c.bank.name;
-    document.getElementById('c_bankAccount').value = c.bank.account;
-    document.getElementById('c_bankIfsc').value = c.bank.ifsc;
-    document.getElementById('c_bankBankName').value = c.bank.bankName;
-  }
+/* =====================================================================
+   10. GitHub publishing
+   ===================================================================== */
+function normFolder(f) { return String(f || "").trim().replace(/^\/+|\/+$/g, ""); }
+function encPath(p) { return String(p).split("/").map(encodeURIComponent).join("/"); }
+function repoPath(p) { return "/repos/" + gh.repo + p; }
+function friendly(status, msg) {
+  if (status === 401) return "GitHub rejected the token — it may be expired or mistyped. Create a new token and paste it again.";
+  if (status === 403) return "GitHub says this token isn't allowed to do that (" + msg + "). Make sure the token includes this repository and “Contents” is set to Read and write.";
+  if (status === 404) return "GitHub couldn't find that repository or branch (or the token can't see it). Check the repository name, branch, and that the token was given access to this repository.";
+  return "GitHub error " + status + ": " + msg;
+}
+async function ghApi(method, path, body) {
+  var headers = { "Authorization": "Bearer " + gh.token, "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" };
+  if (body) headers["Content-Type"] = "application/json";
+  var res;
+  try { res = await fetch("https://api.github.com" + path, { method: method, headers: headers, body: body ? JSON.stringify(body) : undefined }); }
+  catch (e) { var er = new Error("Couldn't reach GitHub — check your internet connection and try again."); er.status = 0; throw er; }
+  var data = null; try { data = await res.json(); } catch (e) {}
+  if (!res.ok) { var err = new Error(friendly(res.status, (data && data.message) || res.statusText)); err.status = res.status; throw err; }
+  return data;
+}
+function blobToBase64(blob) {
+  return new Promise(function (res, rej) { var r = new FileReader(); r.onload = function () { res(String(r.result).split(",")[1] || ""); }; r.onerror = function () { rej(r.error); }; r.readAsDataURL(blob); });
+}
 
-  function saveContent() {
-    document.getElementById('contentOk').textContent = '';
-    document.getElementById('contentErr').textContent = '';
-    try {
-      var c = {
-        siteName: document.getElementById('c_siteName').value,
-        siteSub: document.getElementById('c_siteSub').value,
-        instagram: document.getElementById('c_instagram').value,
-        whatsappNumber: document.getElementById('c_whatsapp').value.replace(/[^0-9]/g, ''),
-        upiId: document.getElementById('c_upiId').value,
-        bank: {
-          name: document.getElementById('c_bankName').value,
-          account: document.getElementById('c_bankAccount').value,
-          ifsc: document.getElementById('c_bankIfsc').value,
-          bankName: document.getElementById('c_bankBankName').value
-        }
-      };
-      setJSON(CONTENT_KEY, c);
-      document.getElementById('contentOk').textContent = 'Saved — live on the site immediately (same browser).';
-    } catch (e) { document.getElementById('contentErr').textContent = e.message; }
-  }
-
-  // --------------------------------------------------------------------
-  // VISITORS
-  // --------------------------------------------------------------------
-  function loadVisitors() {
-    var n = parseInt(localStorage.getItem(VISITOR_KEY), 10) || 0;
-    document.getElementById('visitorCount').textContent = String(n).padStart(4, '0');
-  }
-  function resetVisitorCount() {
-    if (!confirm('Reset the visitor counter to 0000?')) return;
-    localStorage.setItem(VISITOR_KEY, '0');
-    loadVisitors();
-  }
-
-  // --------------------------------------------------------------------
-  // BOOKINGS — records are written by app.js (submitBookingViaWhatsApp,
-  // key kc_bookings) whenever a visitor submits a booking on this device.
-  // Full CRUD here: edit any field or the status, delete one, clear all,
-  // or export everything currently loaded as a CSV file.
-  // --------------------------------------------------------------------
-  var bookings = [];
-
-  function loadBookings() {
-    bookings = getJSON(BOOKINGS_KEY, []);
-    renderBookings();
-  }
-
-  function renderBookings() {
-    var el = document.getElementById('bookingsList');
-    document.getElementById('bookingsTotal').textContent = bookings.length;
-    document.getElementById('bookingsPending').textContent = bookings.filter(function (b) { return b.status === 'pending'; }).length;
-    if (!bookings.length) {
-      el.innerHTML = '<p class="sub" style="margin:0;">No bookings yet.</p>';
-      return;
+async function ghTest() {
+  function say(cls, m) { var el = $("#ghMsg"); if (el) el.innerHTML = '<div class="msg ' + cls + '">' + m + "</div>"; }
+  gh.repo = String(gh.repo || "").replace(/^https?:\/\/github\.com\//i, "").replace(/\.git$/i, "").replace(/^\/+|\/+$/g, "");
+  if (!/^[\w.-]+\/[\w.-]+$/.test(gh.repo)) return say("err", "The repository should look like <code>your-username/your-repository</code>.");
+  if (!gh.token) return say("err", "Paste your access token first.");
+  busy("Checking the connection…");
+  try {
+    var repo = await ghApi("GET", "/repos/" + gh.repo);
+    if (!gh.branch) gh.branch = repo.default_branch || "main";
+    var folder = normFolder(gh.folder), note = "", tree = null;
+    try { tree = await ghApi("GET", repoPath("/git/trees/" + encodeURIComponent(gh.branch) + "?recursive=1")); }
+    catch (e) { if (e.status === 404 || e.status === 409) throw new Error("The branch “" + gh.branch + "” wasn't found in that repository. Check the branch name."); throw e; }
+    if (tree && !tree.truncated) {
+      var paths = tree.tree.filter(function (x) { return x.type === "blob"; }).map(function (x) { return x.path; });
+      if (paths.indexOf((folder ? folder + "/" : "") + "index.html") === -1) {
+        var c = paths.filter(function (p) { return p === "admin.html" || /\/admin\.html$/.test(p); });
+        if (c.length === 1) { folder = c[0].replace(/admin\.html$/, "").replace(/\/$/, ""); note = " Found your website files " + (folder ? "in the folder <code>" + esc(folder) + "</code>." : "at the top level of the repository."); }
+        else if (!c.length) throw new Error("Connected, but I can't find your website files (admin.html) on branch “" + gh.branch + "”. Check the branch and folder.");
+        else throw new Error("I found admin.html in several places (" + c.map(esc).join(", ") + "). Type the right folder in “Folder of the website”.");
+      }
     }
-    // Newest first.
-    var order = bookings.map(function (b, i) { return i; })
-      .sort(function (a, b) { return (bookings[b].createdAt || '').localeCompare(bookings[a].createdAt || ''); });
-    el.innerHTML = order.map(function (i) {
-      var b = bookings[i];
-      return '<div class="card" style="padding:14px;margin-bottom:10px;">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">' +
-          '<b style="font-family:ui-monospace,Menlo,Consolas,monospace;">#' + escapeAttr(b.code || '----') + '</b>' +
-          '<select onchange="bookings[' + i + '].status=this.value" style="width:auto;padding:6px 10px;font-size:12px;">' +
-            BOOKING_STATUSES.map(function (s) { return '<option value="' + s + '"' + (b.status === s ? ' selected' : '') + '>' + s + '</option>'; }).join('') +
-          '</select>' +
-        '</div>' +
-        '<label style="margin-top:10px;">Name</label><input type="text" value="' + escapeAttr(b.name) + '" oninput="bookings[' + i + '].name=this.value">' +
-        '<label>WhatsApp</label><input type="text" value="' + escapeAttr(b.whatsapp) + '" oninput="bookings[' + i + '].whatsapp=this.value">' +
-        '<label>Date</label><input type="text" value="' + escapeAttr(b.date) + '" oninput="bookings[' + i + '].date=this.value">' +
-        '<div style="font-size:12px;opacity:0.65;margin-top:10px;line-height:1.6;">' +
-          escapeAttr(b.package || '-') + (b.people ? ' · ' + b.people + ' people' : '') + '<br>' +
-          'Total ₹' + Number(b.total || 0).toLocaleString('en-IN') +
-          ' · Advance ₹' + Number(b.advance || 0).toLocaleString('en-IN') +
-          ' · Balance ₹' + Number(b.balance || 0).toLocaleString('en-IN') +
-        '</div>' +
-        '<button class="danger small" style="margin-top:10px;" onclick="deleteBooking(' + i + ')">Delete</button>' +
-      '</div>';
-    }).join('');
-  }
+    gh.folder = folder; saveGh();
+    render(true);
+    say("ok", "✓ Connected to <b>" + esc(gh.repo) + "</b> (branch <code>" + esc(gh.branch) + "</code>). You can publish now." + note);
+  } catch (e) { say("err", esc(e.message || String(e))); }
+  finally { busyDone(); }
+}
 
-  function deleteBooking(i) {
-    if (!confirm('Delete this booking record? This cannot be undone.')) return;
-    bookings.splice(i, 1);
-    setJSON(BOOKINGS_KEY, bookings);
-    renderBookings();
-  }
+function validate() {
+  var errs = [], wa = String(M.whatsappNumber || "").replace(/\D/g, "");
+  if (!/^\d{10,15}$/.test(wa)) errs.push("The WhatsApp number must be 10–15 digits including the country code (Menu & footer tab).");
+  vehs().forEach(function (v, i) { if (!String(v.name || "").trim()) errs.push("Vehicle " + (i + 1) + " needs a name (Vehicles tab)."); });
+  M.nav.forEach(function (n) { if (n.kind === "url" && !/^https?:\/\//i.test(String(n.url || ""))) errs.push("The menu link “" + n.label + "” needs a web address starting with https:// (Menu & footer tab)."); });
+  if (M.notice.enabled && !String(M.notice.text).trim()) errs.push("The pop-up notice is switched on but has no message (Notices tab).");
+  if (M.announcement.enabled && !String(M.announcement.text).trim()) errs.push("The announcement bar is switched on but has no text (Notices tab).");
+  return errs;
+}
 
-  function saveBookings() {
-    document.getElementById('bookingsOk').textContent = '';
-    document.getElementById('bookingsErr').textContent = '';
+var pollId = 0;
+function setLive() { var el = $("#liveMsg"); if (el) el.innerHTML = liveMsg; }
+async function pollLive(updatedAt) {
+  var my = ++pollId;
+  if (location.protocol === "file:") { liveMsg = '<div class="msg info">Published to GitHub. It will be live in about a minute.</div>'; setLive(); return; }
+  liveMsg = '<div class="msg info">⏳ Published to GitHub. Waiting for the live site to update (usually under a minute)…</div>'; setLive();
+  for (var i = 0; i < 40; i++) {
+    await sleep(5000);
+    if (my !== pollId) return;
     try {
-      setJSON(BOOKINGS_KEY, bookings);
-      document.getElementById('bookingsOk').textContent = 'Saved.';
-    } catch (e) { document.getElementById('bookingsErr').textContent = e.message; }
+      var r = await fetch("site-data.json?cb=" + Date.now(), { cache: "no-store" });
+      if (r.ok) { var j = await r.json(); if (j && j.updatedAt === updatedAt) { liveMsg = '<div class="msg ok">✓ Live now — visitors can see your changes.</div>'; setLive(); toast("Your site is live with the new changes ✓"); return; } }
+    } catch (e) {}
   }
+  if (my === pollId) { liveMsg = '<div class="msg info">Your changes are saved in GitHub, but the live site hasn’t updated yet. This can take a few minutes — and make sure GitHub Pages is switched on for the repository.</div>'; setLive(); }
+}
 
-  function clearAllBookings() {
-    if (!confirm('Delete ALL booking records on this device? This cannot be undone.')) return;
-    bookings = [];
-    localStorage.removeItem(BOOKINGS_KEY);
-    renderBookings();
-    document.getElementById('bookingsClearOk').textContent = 'All bookings deleted.';
-  }
+async function publish() {
+  if (!M) return;
+  if (!gh.token || !gh.repo) { setTab("publish"); toast("Connect GitHub first (one-time setup).", true); return; }
+  var errs = validate();
+  if (errs.length) { alert("Please fix these before publishing:\n\n• " + errs.join("\n• ")); return; }
+  if (!vehs().some(function (v) { return v.visible; }) && !confirm("No vehicle is set to show, so the rental section will be hidden on your website. Publish anyway?")) return;
 
-  function exportBookingsCsv() {
-    if (!bookings.length) { alert('No bookings to export.'); return; }
-    var cols = ['code', 'createdAt', 'status', 'name', 'whatsapp', 'date', 'package', 'people', 'total', 'advance', 'balance'];
-    var rows = [cols.join(',')].concat(bookings.map(function (b) {
-      return cols.map(function (c) {
-        var v = b[c] == null ? '' : String(b[c]);
-        if (v.indexOf(',') !== -1 || v.indexOf('"') !== -1) v = '"' + v.replace(/"/g, '""') + '"';
-        return v;
-      }).join(',');
-    }));
-    var blob = new Blob([rows.join('\n')], { type: 'text/csv' });
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'krem-chympe-bookings.csv';
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    URL.revokeObjectURL(a.href);
-  }
-
-  // --------------------------------------------------------------------
-  // SETTINGS
-  // --------------------------------------------------------------------
-  function changePassword() {
-    document.getElementById('settingsOk').textContent = '';
-    document.getElementById('settingsErr').textContent = '';
-    var newPassword = document.getElementById('newPassword').value;
-    if (!newPassword || newPassword.length < 6) {
-      document.getElementById('settingsErr').textContent = 'Password must be at least 6 characters.';
-      return;
+  var content = modelToContent(M), json = JSON.stringify(content), updatedAt = new Date().toISOString();
+  var text = JSON.stringify({ schema: 1, updatedAt: updatedAt, content: content }, null, 2) + "\n";
+  var folder = normFolder(gh.folder), prefix = folder ? folder + "/" : "";
+  var uploads = Object.keys(pending).filter(function (p) { return !pending[p].uploaded && json.indexOf('"' + p + '"') !== -1; });
+  try {
+    var entries = [];
+    for (var i = 0; i < uploads.length; i++) {
+      busy("Uploading file " + (i + 1) + " of " + uploads.length + "…");
+      var blob = await ghApi("POST", repoPath("/git/blobs"), { content: await blobToBase64(pending[uploads[i]].blob), encoding: "base64" });
+      entries.push({ path: prefix + uploads[i], mode: "100644", type: "blob", sha: blob.sha });
     }
-    localStorage.setItem(PASS_HASH_KEY, simpleHash(newPassword));
-    document.getElementById('settingsOk').textContent = 'Password updated.';
-    document.getElementById('newPassword').value = '';
+    busy("Saving your changes…");
+    var jb = await ghApi("POST", repoPath("/git/blobs"), { content: text, encoding: "utf-8" });
+    entries.push({ path: prefix + "site-data.json", mode: "100644", type: "blob", sha: jb.sha });
+    var lastErr = null, branch = gh.branch || "main";
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        var ref = await ghApi("GET", repoPath("/git/ref/heads/" + encPath(branch)));
+        var head = ref.object.sha;
+        var commit = await ghApi("GET", repoPath("/git/commits/" + head));
+        var tree = await ghApi("POST", repoPath("/git/trees"), { base_tree: commit.tree.sha, tree: entries });
+        var nc = await ghApi("POST", repoPath("/git/commits"), { message: "Update website content (Admin Dashboard)", tree: tree.sha, parents: [head] });
+        await ghApi("PATCH", repoPath("/git/refs/heads/" + encPath(branch)), { sha: nc.sha, force: false });
+        lastErr = null; break;
+      } catch (e) { lastErr = e; if (e.status !== 422 && e.status !== 409) throw e; await sleep(900); }
+    }
+    if (lastErr) throw lastErr;
+    uploads.forEach(function (p) { pending[p].uploaded = true; });
+    published = { schema: 1, updatedAt: updatedAt, content: content };
+    baseline = json;
+    draftDel();
+    busyDone(); render(true);
+    toast("Published ✓");
+    pollLive(updatedAt);
+  } catch (e) {
+    busyDone();
+    toast(e.message || "Publishing failed.", true);
+    alert("Publishing didn't finish:\n\n" + (e.message || e) + "\n\nYour edits are still saved in this browser — nothing was lost.");
   }
+}
 
-  function resetEverything() {
-    if (!confirm('Reset ALL prices, items, content, the visitor counter, and bookings back to defaults? This cannot be undone.')) return;
-    if (!confirm('Are you absolutely sure? This applies immediately on this device.')) return;
-    localStorage.removeItem(PRICES_KEY);
-    localStorage.removeItem(CONTENT_KEY);
-    localStorage.removeItem(VISITOR_KEY);
-    localStorage.removeItem(BOOKINGS_KEY);
-    document.getElementById('dangerOk').textContent = 'Everything reset to defaults.';
-    loadPrices(); loadItems(); loadContent(); loadVisitors(); loadBookings();
+/* =====================================================================
+   11. Minimal ZIP writer (no compression) — for manual uploads
+   ===================================================================== */
+var CRC_T = (function () { var t = []; for (var n = 0; n < 256; n++) { var c = n; for (var k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); t[n] = c >>> 0; } return t; })();
+function crc32(u8) { var c = 0xFFFFFFFF; for (var i = 0; i < u8.length; i++) c = CRC_T[(c ^ u8[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function makeZip(files) {
+  var enc = new TextEncoder(), chunks = [], central = [], offset = 0, now = new Date();
+  var dt = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+  var tm = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+  files.forEach(function (f) {
+    var name = enc.encode(f.name), crc = crc32(f.data), size = f.data.length;
+    var lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(8, 0, true);
+    lh.setUint16(10, tm, true); lh.setUint16(12, dt, true); lh.setUint32(14, crc, true); lh.setUint32(18, size, true); lh.setUint32(22, size, true);
+    lh.setUint16(26, name.length, true); lh.setUint16(28, 0, true);
+    chunks.push(new Uint8Array(lh.buffer), name, f.data);
+    var ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true); ch.setUint16(10, 0, true);
+    ch.setUint16(12, tm, true); ch.setUint16(14, dt, true); ch.setUint32(16, crc, true); ch.setUint32(20, size, true); ch.setUint32(24, size, true);
+    ch.setUint16(28, name.length, true); ch.setUint32(42, offset, true);
+    central.push(new Uint8Array(ch.buffer), name);
+    offset += 30 + name.length + size;
+  });
+  var csize = central.reduce(function (a, c) { return a + c.length; }, 0);
+  var end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true); end.setUint32(12, csize, true); end.setUint32(16, offset, true);
+  return new Blob(chunks.concat(central, [new Uint8Array(end.buffer)]), { type: "application/zip" });
+}
+window.__kcAdmin = { makeZip: makeZip, crc32: crc32 };   // handy for testing
+
+/* =====================================================================
+   12. Events + boot
+   ===================================================================== */
+document.addEventListener("click", function (e) {
+  var tb = e.target.closest && e.target.closest("[data-tab]");
+  if (tb) { setTab(tb.getAttribute("data-tab")); return; }
+  var a = e.target.closest && e.target.closest("[data-act]");
+  if (!a || a.disabled) return;
+  var fn = ACT[a.getAttribute("data-act")];
+  if (fn) { e.preventDefault(); fn(a); }
+});
+
+document.addEventListener("input", function (e) {
+  var t = e.target, ds = t.dataset || {};
+  if (ds.gh) { gh[ds.gh] = t.value.trim(); saveGh(); return; }
+  if (!M) return;
+  if (ds.b) {
+    var val = t.type === "checkbox" ? t.checked : (ds.n ? (t.value === "" ? 0 : Math.max(0, Number(t.value) || 0)) : t.value);
+    setPath(M, ds.b, val);
+    if (ds.show) { var s = document.getElementById(ds.show); if (s) s.textContent = val + "%"; }
+    var m = /^vehicleRental\.vehicles\.(\d+)\.name$/.exec(ds.b);
+    if (m) { var el = document.querySelector('details.veh[data-i="' + m[1] + '"] .vname'); if (el) el.textContent = val || "Untitled vehicle"; }
+    changed();
+  } else if (ds.l) {
+    setPath(M, ds.l, t.value.split("\n")); changed();
   }
+});
 
-  // Boot — stay logged in for this browser tab/session only (closing the
-  // tab logs out), same spirit as the old JWT token but with no server to
-  // issue or verify one.
-  if (sessionStorage.getItem(SESSION_KEY)) { showApp(); }
+document.addEventListener("change", function (e) {
+  var t = e.target, ds = t.dataset || {};
+  if (t.type === "file" && ds.up) {
+    var files = Array.prototype.slice.call(t.files || []), snap = { path: ds.path, i: ds.i, alpha: ds.alpha };
+    t.value = "";
+    handleUpload(ds.up, files, snap);
+    return;
+  }
+  if (ds.rerender || (ds.b && /^vehicleRental\.vehicles\.\d+\.visible$/.test(ds.b))) { if (M) render(true); }
+});
+
+document.addEventListener("toggle", function (e) {
+  var d = e.target;
+  if (d && d.matches && d.matches("details.veh")) { openVeh[d.getAttribute("data-vid")] = d.open; }
+}, true);
+
+async function boot() {
+  try {
+    var r = await fetch("site-data.json?cb=" + Date.now(), { cache: "no-store" });
+    if (r.ok) { var j = await r.json(); if (isObj(j) && isObj(j.content)) published = j; }
+  } catch (e) { /* not published yet, or opened from a file — start from config.js */ }
+  M = contentToModel(deepMerge(CFG, published ? published.content : {}));
+  baseline = JSON.stringify(modelToContent(M));
+
+  var d = await draftGet();
+  if (d && d.model) {
+    var dj = JSON.stringify(modelToContent(d.model)), hasPending = (d.pending || []).length > 0;
+    if (dj === baseline && !hasPending) { draftDel(); }
+    else {
+      var keep = true;
+      if ((d.baseUpdatedAt || null) !== ((published && published.updatedAt) || null)) {
+        keep = confirm("You have unpublished edits saved in this browser, but the live site has changed since then.\n\nOK = keep my saved edits\nCancel = discard them and start from the live site");
+      }
+      if (keep) {
+        M = d.model;
+        (d.pending || []).forEach(function (p) { pending[p.path] = { blob: p.blob, mime: p.mime, uploaded: false }; });
+        setTimeout(function () { toast("Restored your unpublished edits."); }, 300);
+      } else draftDel();
+    }
+  }
+  var h = (location.hash || "").replace("#", "");
+  if (TABS.some(function (t) { return t[0] === h; })) tab = h;
+  var logo = $("#brandLogo"); if (M.logoImage) logo.src = mediaUrl(M.logoImage);
+  render(false);
+}
+boot();
+
+})();
 </script>
 </body>
 </html>
