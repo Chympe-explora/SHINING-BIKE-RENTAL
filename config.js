@@ -498,6 +498,7 @@
         subtitle: "Explore Meghalaya at your own pace — self-drive scooters and bikes, available by the hour.",
         operatingHoursNote: "Pickup & drop between 8:00 AM and 8:00 PM daily.",
         // Wording used around the vehicle cards (all editable in the Admin Dashboard)
+        searchTitle: "Find your ride",
         searchPlaceholder: "Search bikes & scooters",
         noResultsTitle: "No vehicles found for",
         noResultsText: "Try a different word, like \"scooter\" or \"bike\".",

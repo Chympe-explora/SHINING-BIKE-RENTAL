@@ -4,13 +4,14 @@ A fully static website (no server). Host it anywhere that serves static files
 (GitHub Pages, Netlify, Cloudflare Pages, any web host).
 
 ## What visitors see
-- **Home** — hero, a **search bar**, one card per vehicle (photo slider, description,
+- **Home** — hero, a separate **Find your ride** search section, one card per vehicle (photo slider, description,
   6/12/24 hour prices, deposit, **Rent Now**), and the footer/contact block.
 - **Rental Terms** — the full terms and refund policy (footer link / menu).
 - **Rent Now** opens a 4-step form (schedule → your details → terms → confirm) and
   finishes by opening WhatsApp with the request prefilled.
 
 ## Editing the site — the Admin Dashboard (`/admin.html`)
+The dashboard uses the same look as the website (photo background, glass panels, green pill buttons).
 Open `https://your-site/admin.html`. Everything visitors can read or see is editable:
 
 | Tab | What you can change |
