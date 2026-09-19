@@ -1,4 +1,4 @@
-/* Krem Chympe — Adventure & Camping
+/* Shining Bike Rental — Bike & Scooter Rental
    Rebuilt, human-readable app.js (previous app.js was a minified/bundled
    production build with no available source — this replaces it with an
    equivalent, editable implementation, reproducing the same visual design,
@@ -70,6 +70,10 @@
   var WHY_VISIT = CONTENT.whyVisit || { title: "", subtitle: "", intro: "", journeys: [] };
   var FOOTER = CONTENT.footer || { brandName: "", locationLine: "", contactTitle: "Contact Us", phone: "", email: "", followTitle: "Follow Us On", importantLinkTitle: "Important Link", refundPolicyLabel: "Refund Policy", copyright: "" };
   var REFUND_POLICY = CONTENT.refundPolicy || { title: "Refund Policy", intro: "", sections: [], promiseTitle: "", promiseText: [] };
+
+  // The Rental Terms page shows the same numbered terms as the rental form
+  // (edit them once, in config.js → rentalPolicy).
+  REFUND_POLICY = Object.assign({}, REFUND_POLICY, { sections: (CONTENT.rentalPolicy && CONTENT.rentalPolicy.sections) || [] });
 
   var TRUST = Object.assign({
     trustedText: "Trusted by 1000+", travelersText: "Travelers",
@@ -864,10 +868,10 @@
     var CURRENT_PAGE_KEY = "kc_current_page_" + (window.KC_SITE_ID || "site");
     var pageState = useState(function () {
       var n = parseInt(new URLSearchParams(window.location.search).get("page"), 10);
-      if (n >= 1 && n <= 7) return n;
+      if (n === 1 || n === 7) return n;
       try {
         var stored = parseInt(localStorage.getItem(CURRENT_PAGE_KEY), 10);
-        if ((stored >= 1 && stored <= 5) || stored === 7) return stored;
+        if (stored === 7) return stored;
       } catch (e) {}
       return 1;
     });
@@ -885,7 +889,19 @@
     function goBookNow() {
       var link = CONTENT.hero && CONTENT.hero.bookNowLink;
       if (link) { window.open(link, "_blank"); return; }
-      setPage(HEADER_CTA_TARGET_PAGE);
+      goVehicles();
+    }
+
+    // Takes the visitor to the vehicle list (switching back to Home first
+    // if they're on the Rental Terms page). The rental form itself only
+    // ever opens from a vehicle's own "Rent Now" button.
+    function goVehicles() {
+      if (page !== 1) {
+        setPageRaw(1);
+        setTimeout(function () { scrollToId("kc-vehicle-rental"); }, 80);
+      } else {
+        scrollToId("kc-vehicle-rental");
+      }
     }
 
     // Keep the "last page" memory above up to date on every navigation.
@@ -1023,7 +1039,7 @@
       var planLabel = (RENTAL_PLANS.filter(function (p) { return p.id === rentalForm.plan; })[0] || {}).label || (rentalForm.plan + " Hours");
       var refCode = "R" + Date.now().toString(36).toUpperCase().slice(-6);
       var msg =
-        "🏍️ *Vehicle Rental Request*\n" +
+        "🏍️ *Shining Bike Rental — Vehicle Rental Request*\n" +
         "Ref: " + refCode + "\n\n" +
         "Vehicle: " + (rentalVehicle && rentalVehicle.name) + "\n" +
         "Plan: " + planLabel + "\n" +
@@ -1118,8 +1134,9 @@
     // only has to live in one place. Page 6 itself always stays reachable
     // — needed to force the visitor back onto it after a refresh.
     function setPage(target) {
-      if (isBookingLocked() && target !== 6) return;
-      setPageRaw(target);
+      // This is a rental-only site: the only pages are Home (1) and
+      // Rental Terms (7). Anything else lands on Home.
+      setPageRaw(target === 7 ? 7 : 1);
     }
 
     // Shared by both the fresh-submission watchStatus() call and the
@@ -1142,6 +1159,9 @@
     // locally.
     useEffect(function () {
       var raw;
+      // Old camping-booking status pages no longer exist on this site.
+      try { localStorage.removeItem(ACTIVE_BOOKING_KEY); } catch (e) {}
+      return;
       try { raw = localStorage.getItem(ACTIVE_BOOKING_KEY); } catch (e) { raw = null; }
       if (!raw) return;
       var saved;
@@ -1869,11 +1889,13 @@
     // page 2" behavior.
     var NAV_DESTINATIONS = {
       home: { page: 1, scrollId: null },
-      explore: { page: 1, scrollId: "kc-explore" },
-      gallery: { page: 1, scrollId: "kc-gallery" },
+      vehicles: { page: 1, scrollId: "kc-vehicle-rental" },
+      terms: { page: 7, scrollId: null },
       contact: { page: 1, scrollId: "kc-contact" },
-      packages: { page: 2, scrollId: "kc-packages" },
-      booking: { page: 2, scrollId: "kc-packages" }
+      explore: { page: 1, scrollId: "kc-vehicle-rental" },
+      gallery: { page: 1, scrollId: null },
+      packages: { page: 1, scrollId: "kc-vehicle-rental" },
+      booking: { page: 1, scrollId: "kc-vehicle-rental" }
     };
     function resolveNavTarget(item) {
       var raw = typeof item === "string" ? null : (item && item.target);
@@ -1890,11 +1912,11 @@
       if (typeof item === "string") {
         var key = item.trim().toLowerCase();
         if (NAV_DESTINATIONS[key]) return NAV_DESTINATIONS[key];
-        return key === "home" ? NAV_DESTINATIONS.home : NAV_DESTINATIONS.packages;
+        return key === "home" ? NAV_DESTINATIONS.home : NAV_DESTINATIONS.vehicles;
       }
       var n = item && Number(item.target);
       if (n === 1) return NAV_DESTINATIONS.home;
-      return NAV_DESTINATIONS.packages;
+      return NAV_DESTINATIONS.vehicles;
     }
     // Handles the two extra destination kinds the admin bot can set on a
     // nav item beyond a section jump: an external "url", or
@@ -1925,10 +1947,15 @@
       // the header's height right now would include the still-open menu,
       // throwing off the scroll-offset math and landing short of the
       // section. Waiting a tick lets the menu close first.
-      if (page !== dest.page) { setPage(dest.page); setTimeout(scroll, 60); }
+      if (page !== dest.page) { setPage(dest.page); setTimeout(scroll, 80); }
       else setTimeout(scroll, 60);
     }
-    var navItems = (CONTENT.nav && CONTENT.nav.items) || ["Home", "Explore", "Packages", "Gallery", "Booking", "Contact"];
+    function notGalleryNav(item) {
+      var lbl = (navLabel(item) || "").trim().toLowerCase();
+      var tgt = (item && typeof item === "object" && typeof item.target === "string") ? item.target.toLowerCase() : "";
+      return lbl !== "gallery" && tgt !== "gallery";
+    }
+    var navItems = ((CONTENT.nav && CONTENT.nav.items) || ["Home", "Explore", "Packages", "Booking", "Contact"]).filter(notGalleryNav);
     function onHeroNavClick(item) { navigateItem(item); }
 
     // ---- Header ----------------------------------------------------
@@ -1965,7 +1992,7 @@
       ),
       mobileMenuOpen && h(
         GlassCard, { className: "md:hidden mt-3 p-4 max-w-[1280px] mx-auto space-y-2" },
-        (CONTENT.nav && CONTENT.nav.mobileItems || ["Home", "Packages", "Gallery"]).map(function (p) {
+        ((CONTENT.nav && CONTENT.nav.mobileItems) || ["Home", "Packages"]).filter(notGalleryNav).map(function (p) {
           return h("button", {
             key: navLabel(p),
             onClick: function () { navigateItem(p); },
@@ -1992,262 +2019,82 @@
             titleWords.slice(0, 2).join(" "), h("br"), h("span", { className: "text-white/70" }, titleWords.slice(2).join(" "))
           ),
           h("p", { className: "mt-5 text-white/70 text-[15px] leading-relaxed max-w-[520px]" }, CONTENT.hero.sub),
-          h("div", { className: "mt-8 flex gap-3" }, h("button", { onClick: function () { goBookNow(); }, className: "bg-[#2E8B57] hover:bg-[#257a4b] px-7 py-3 rounded-full text-sm font-semibold flex items-center gap-2" }, "Book Now ", h(ArrowRight, { size: 16 })))
-        )
-      ),
-      SECTIONS.trustBar && h(
-        GlassCard, { className: "px-6 py-4 flex flex-wrap items-center justify-between gap-4" },
-        h(
-          "div", { className: "flex items-center gap-3" },
-          h("div", { className: "flex -space-x-2" }, [0, 1, 2, 3].map(function (p) { return h("img", { key: p, src: "https://i.pravatar.cc/100?img=" + (10 + p), alt: "", loading: "lazy", decoding: "async", className: "w-8 h-8 rounded-full border-2 border-black/30" }); })),
-          h("div", { className: "text-[13px]" }, h("span", { className: "font-semibold" }, TRUST.trustedText), " ", h("span", { className: "text-white/60" }, TRUST.travelersText))
-        ),
-        h(
-          "div", { className: "flex gap-6 text-[13px]" },
-          h("span", { className: "flex items-center gap-2" }, h(Star, { size: 14, className: "text-amber-400" }), " " + TRUST.googleRatingText),
-          h("span", { className: "flex items-center gap-2" }, h(Shield, { size: 14, className: "text-emerald-400" }), " " + TRUST.safetyCertifiedText),
-          h("span", { className: "flex items-center gap-2" }, h(Award, { size: 14 }), " " + TRUST.ecoTourismText)
-        )
-      ),
-      SECTIONS.visitorGuide && VISITOR_GUIDE.cards && VISITOR_GUIDE.cards.length > 0 && h(
-        GlassCard, { className: "kc-flat p-6 md:p-10" },
-        h(
-          "button",
-          {
-            type: "button",
-            onClick: function () { setVisitorGuideOpen(function (v) { return !v; }); },
-            className: "kc-flat w-full flex items-center justify-between gap-4 text-left",
-            "aria-expanded": visitorGuideOpen ? "true" : "false"
-          },
-          h(
-            "div", null,
-            h("h2", { className: "text-2xl md:text-3xl font-semibold" }, VISITOR_GUIDE.title),
-            VISITOR_GUIDE.subtitle && h("p", { className: "mt-2 text-white/60 text-sm max-w-[560px]" }, VISITOR_GUIDE.subtitle)
-          ),
-          h(
-            "div", { className: "w-9 h-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0" },
-            h(ChevronDown, { size: 20, className: "transition-transform duration-300 " + (visitorGuideOpen ? "rotate-180" : "") })
-          )
-        ),
-        h(
-          "div",
-          {
-            className: "grid transition-[grid-template-rows] duration-300 ease-out " + (visitorGuideOpen ? "grid-rows-[1fr] mt-8" : "grid-rows-[0fr] mt-0")
-          },
-          h(
-            "div", { className: "overflow-hidden" },
-            h(
-              "div", { className: "grid sm:grid-cols-2 lg:grid-cols-3 gap-5" },
-              VISITOR_GUIDE.cards.map(function (card) {
-                var icons = { mappin: MapPin, calendar: CalendarIcon, users: Users, backpack: Backpack, shield: Shield, leaf: Leaf };
-                var Icon = icons[card.icon] || Mountain;
-                return h(
-                  "div", { key: card.title, className: "" },
-                  h(
-                    "div", { className: "flex items-center gap-3 mb-3" },
-                    h("div", { className: "w-9 h-9 rounded-lg bg-emerald-500/20 flex items-center justify-center flex-shrink-0" }, h(Icon, { size: 18, className: "text-emerald-400" })),
-                    h("h3", { className: "font-semibold text-[15px]" }, card.title)
-                  ),
-                  h(
-                    "ul", { className: "space-y-2" },
-                    (card.items || []).map(function (item, i) {
-                      return h("li", { key: i, className: "flex gap-2 text-[13px] text-white/70 leading-relaxed" }, h("span", { className: "text-emerald-400 font-bold" }, "•"), item);
-                    })
-                  )
-                );
-              })
-            )
-          )
-        )
-      ),
-      (SECTIONS.ourStory || SECTIONS.statsRow) && h(
-        "div", { className: "grid md:grid-cols-[1.1fr_0.9fr] gap-6" },
-        SECTIONS.ourStory && h(
-          GlassCard, { className: "p-8 md:p-10" },
-          h("h2", { className: "text-2xl font-semibold" }, t("ourStory", "Our Story")),
-          h(
-            "div", { className: "mt-8 space-y-6 border-l border-white/10 pl-6 relative" },
-            STORY_TIMELINE.map(function (p) {
-              return h(
-                "div", { key: p.title, className: "relative" },
-                h("div", { className: "absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-[#2E8B57] border-2 border-white/20" }),
-                h("div", { className: "text-[11px] tracking-widest text-white/50" }, p.year),
-                h("div", { className: "font-medium mt-1" }, p.title),
-                h("div", { className: "text-[13px] text-white/60 mt-1" }, p.desc)
-              );
-            })
-          )
-        ),
-        SECTIONS.statsRow && h(
-          GlassCard, { className: "p-6 grid grid-cols-2 gap-4 content-start" },
-          [
-            { k: t("statForestTrailValue", "10.5KM"), v: t("statForestTrailLabel", "Mapped Cave") },
-            { k: t("statAverageTrekValue", "3-4 Hrs"), v: t("statAverageTrekLabel", "Trek Each Way") },
-            { k: t("statSpeciesValue", "50+"), v: t("statSpeciesLabel", "Limestone Dams") },
-            { k: t("statGoogleRatingValue", "4.9"), v: t("statGoogleRatingLabel", "Visitor Rating") }
-          ].map(function (p) {
-            return h("div", { key: p.v, className: "rounded-[16px] bg-white/5 border border-white/10 p-5" }, h("div", { className: "text-2xl font-bold" }, p.k), h("div", { className: "text-[12px] text-white/60 mt-1" }, p.v));
-          })
-        )
-      ),
-      SECTIONS.destinationDetails && h(
-        "div", { id: "kc-explore", className: "space-y-6 scroll-mt-24" },
-        h(
-          GlassCard, { className: "p-8 md:p-10 text-center" },
-          h("h2", { className: "text-3xl font-semibold" }, CONTENT.destinationDetails.title),
-          h("p", { className: "mt-2 text-white/60 text-sm" }, CONTENT.destinationDetails.subtitle)
-        ),
-        h("div", { className: "grid md:grid-cols-2 gap-6" },
-          (CONTENT.destinationDetails.highlights || []).map(function (highlight) {
-            var icons = { mountain: Mountain, water: Compass, users: Users, leaf: Leaf, cave: CaveIcon, eco: Leaf };
-            var Icon = icons[highlight.icon] || Mountain;
-            return h(
-              GlassCard, { key: highlight.label, className: "p-6" },
-              h("div", { className: "flex gap-3 items-start" },
-                h("div", { className: "w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center flex-shrink-0" },
-                  h(Icon, { size: 20, className: "text-emerald-400" })
-                ),
-                h("div", null,
-                  h("div", { className: "font-semibold text-sm" }, highlight.label),
-                  h("div", { className: "text-[13px] text-white/60 mt-1" }, highlight.description)
-                )
-              ),
-              h(ImageSlider, { images: highlight.images || [], alt: highlight.label })
-            );
-          })
-        )
-      ),
-      WHY_VISIT.journeys && WHY_VISIT.journeys.length > 0 && h(
-        GlassCard, { className: "p-6 md:p-10" },
-        h("h2", { className: "text-2xl md:text-3xl font-semibold text-center tracking-tight" }, WHY_VISIT.title),
-        WHY_VISIT.subtitle && h("p", { className: "mt-2 text-white/80 text-base font-medium text-center" }, WHY_VISIT.subtitle),
-        WHY_VISIT.intro && h("p", { className: "mt-4 text-white/60 text-sm leading-relaxed text-center max-w-[720px] mx-auto" }, WHY_VISIT.intro),
-        h(
-          "div", { className: "mt-8 grid md:grid-cols-2 gap-5" },
-          WHY_VISIT.journeys.map(function (j) {
-            return h(
-              "div", { key: j.number, className: "" },
-              h(
-                "div", { className: "flex items-center gap-3" },
-                h("span", { className: "text-2xl" }, j.emoji),
-                h("span", { className: "text-[11px] tracking-widest text-white/40 font-semibold" }, j.number, " —"),
-                h("h3", { className: "font-semibold text-[15px]" }, j.title)
-              ),
-              j.tagline && h("div", { className: "mt-3 text-white/80 text-[13px] font-medium italic" }, j.tagline),
-              j.description && h("p", { className: "mt-2 text-[13px] text-white/60 leading-relaxed" }, j.description),
-              h(ImageSlot, { slot: j.imageSlot }),
-              j.experience && j.experience.length > 0 && h(
-                "div", { className: "mt-4 flex flex-wrap gap-2" },
-                j.experience.map(function (tag) {
-                  return h("span", { key: tag, className: "px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/20 text-[11px] text-emerald-300" }, tag);
-                })
-              )
-            );
-          })
-        )
-      ),
-      SECTIONS.activitiesFacilities && h(
-        GlassCard, { className: "p-6 md:p-10" },
-        h("h2", { className: "text-2xl md:text-3xl font-semibold text-center" }, ACT_FAC.title),
-        ACT_FAC.subtitle && h("p", { className: "mt-2 text-white/60 text-sm text-center max-w-[560px] mx-auto" }, ACT_FAC.subtitle),
-        h(
-          "div", { className: "mt-8 grid md:grid-cols-2 gap-6" },
-          h(
-            "div", { className: "md:pr-6" },
-            h(
-              "div", { className: "flex items-center gap-3 mb-4" },
-              h("div", { className: "w-9 h-9 rounded-lg bg-emerald-500/20 flex items-center justify-center flex-shrink-0" }, h(Mountain, { size: 18, className: "text-emerald-400" })),
-              h("h3", { className: "font-semibold text-[15px]" }, ACT_FAC.activitiesTitle)
-            ),
-            h(
-              "ul", { className: "grid sm:grid-cols-2 gap-x-4 gap-y-2" },
-              (ACT_FAC.activities || []).map(function (item) {
-                return h("li", { key: item, className: "flex gap-2 text-[13px] text-white/70" }, h(Check, { size: 14, className: "text-emerald-400 mt-0.5 flex-shrink-0" }), item);
-              })
-            )
-          ),
-          h(
-            "div", { className: "md:pl-6 md:border-l md:border-white/10" },
-            h(
-              "div", { className: "flex items-center gap-3 mb-4" },
-              h("div", { className: "w-9 h-9 rounded-lg bg-emerald-500/20 flex items-center justify-center flex-shrink-0" }, h(Shield, { size: 18, className: "text-emerald-400" })),
-              h("h3", { className: "font-semibold text-[15px]" }, ACT_FAC.facilitiesTitle)
-            ),
-            h(
-              "ul", { className: "grid sm:grid-cols-2 gap-x-4 gap-y-2" },
-              (ACT_FAC.facilities || []).map(function (item) {
-                return h("li", { key: item, className: "flex gap-2 text-[13px] text-white/70" }, h(Check, { size: 14, className: "text-emerald-400 mt-0.5 flex-shrink-0" }), item);
-              })
-            )
-          )
-        )
-      ),
-      SECTIONS.meetGuide && h(
-        GlassCard, { className: "p-6 md:p-8 flex flex-col sm:flex-row gap-5 items-center" },
-        h("img", { src: CONTENT.guide.image, alt: CONTENT.guide.name ? CONTENT.guide.name + ", your guide" : "Your guide", loading: "lazy", decoding: "async", className: "w-20 h-20 rounded-full object-cover border border-white/20 flex-shrink-0" }),
-        h(
-          "div", { className: "text-center sm:text-left" },
-          h("div", { className: "font-semibold text-lg" }, t("meetYourGuide", "Meet Your Guide")),
-          h("div", { className: "text-[13px] text-white/80 mt-0.5" }, CONTENT.guide.name, " • ", CONTENT.guide.role),
-          h("div", { className: "text-[13px] text-white/60 mt-1.5 max-w-[560px]" }, CONTENT.guide.bio)
+          h("div", { className: "mt-8 flex gap-3" }, h("button", { onClick: function () { goBookNow(); }, className: "bg-[#2E8B57] hover:bg-[#257a4b] px-7 py-3 rounded-full text-sm font-semibold flex items-center gap-2" }, "View Vehicles ", h(ArrowRight, { size: 16 })))
         )
       ),
       SECTIONS.vehicleRental && VEHICLE_RENTAL.vehicles && VEHICLE_RENTAL.vehicles.length > 0 && h(
-        GlassCard, { id: "kc-vehicle-rental", className: "p-6 md:p-10 scroll-mt-24" },
-        h("h2", { className: "text-2xl md:text-3xl font-semibold text-center" }, VEHICLE_RENTAL.title),
-        VEHICLE_RENTAL.subtitle && h("p", { className: "mt-2 text-white/60 text-sm text-center max-w-[560px] mx-auto" }, VEHICLE_RENTAL.subtitle),
-        VEHICLE_RENTAL.operatingHoursNote && h("p", { className: "mt-1 text-white/40 text-[12px] text-center" }, VEHICLE_RENTAL.operatingHoursNote),
+        "div", { id: "kc-vehicle-rental", className: "space-y-6 scroll-mt-24" },
         h(
-          "div", { className: "mt-8 flex gap-5 overflow-x-auto pb-4 snap-x snap-mandatory" },
-          VEHICLE_RENTAL.vehicles.map(function (vehicle) {
-            var prices = VEHICLE_RENTAL_PRICES[vehicle.id] || {};
-            return h(
-              "div", { key: vehicle.id, className: "flex-none w-[280px] md:w-[320px] rounded-[18px] bg-white/5 border border-white/10 overflow-hidden flex flex-col snap-center" },
+          GlassCard, { className: "p-6 md:p-8 text-center" },
+          h("h2", { className: "text-2xl md:text-3xl font-semibold" }, VEHICLE_RENTAL.title),
+          VEHICLE_RENTAL.subtitle && h("p", { className: "mt-2 text-white/60 text-sm max-w-[560px] mx-auto" }, VEHICLE_RENTAL.subtitle),
+          VEHICLE_RENTAL.operatingHoursNote && h("p", { className: "mt-1 text-white/40 text-[12px]" }, VEHICLE_RENTAL.operatingHoursNote)
+        ),
+        VEHICLE_RENTAL.vehicles.map(function (vehicle) {
+          var prices = VEHICLE_RENTAL_PRICES[vehicle.id] || {};
+          var vImages = (vehicle.images && vehicle.images.length ? vehicle.images : (vehicle.image ? [vehicle.image] : []));
+          return h(
+            GlassCard, { key: vehicle.id, id: "kc-vehicle-" + vehicle.id, className: "p-5 md:p-8 scroll-mt-24" },
+            h(
+              "div", { className: "grid md:grid-cols-2 gap-6 items-start" },
               h(
-                "div", { className: "h-[180px] bg-white/5 border-b border-white/10 overflow-hidden" },
-                vehicle.image ? h("img", { src: vehicle.image, alt: vehicle.name, className: "w-full h-full object-cover" }) : h("div", { className: "w-full h-full flex items-center justify-center" }, h("div", { className: "text-center" }, h("div", { className: "w-12 h-12 rounded-lg bg-emerald-500/20 flex items-center justify-center mx-auto mb-2" }, h(Bike, { size: 24, className: "text-emerald-400" })), h("p", { className: "text-[12px] text-white/50" }, "Image coming soon")))
+                "div", { className: "rounded-[18px] overflow-hidden bg-white/5 border border-white/10" },
+                vImages.length > 0
+                  ? h(ImageSlider, { images: vImages, alt: vehicle.name })
+                  : h("div", { className: "aspect-[16/9] w-full flex items-center justify-center" }, h("div", { className: "text-center" }, h("div", { className: "w-12 h-12 rounded-lg bg-emerald-500/20 flex items-center justify-center mx-auto mb-2" }, h(Bike, { size: 24, className: "text-emerald-400" })), h("p", { className: "text-[12px] text-white/50" }, "Photos coming soon")))
               ),
               h(
-                "div", { className: "p-5 flex flex-col flex-1" },
+                "div", { className: "flex flex-col" },
                 h(
-                  "div", { className: "flex items-start justify-between gap-2 mb-3" },
-                  h("div", null),
+                  "div", { className: "flex items-start justify-between gap-3" },
+                  h("h3", { className: "text-xl font-semibold" }, vehicle.name),
                   vehicle.badge && h("span", { className: "px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/20 text-[10px] text-emerald-300 font-medium whitespace-nowrap" }, vehicle.badge)
                 ),
-                h("h3", { className: "font-semibold text-[15px]" }, vehicle.name),
-                h("p", { className: "mt-1.5 text-[13px] text-white/60 leading-relaxed flex-1" }, vehicle.description),
-                prices["6"] && h("div", { className: "mt-4 text-[13px] text-white/80" }, h("span", { className: "font-semibold" }, money(prices["6"])), h("span", { className: "text-white/50" }, " / 6 hrs onward")),
+                h("p", { className: "mt-2 text-[14px] text-white/70 leading-relaxed" }, vehicle.description),
+                vehicle.details && h("p", { className: "mt-2 text-[13px] text-white/60 leading-relaxed" }, vehicle.details),
+                vehicle.features && vehicle.features.length > 0 && h(
+                  "ul", { className: "mt-4 space-y-2" },
+                  vehicle.features.map(function (f, i) {
+                    return h("li", { key: i, className: "flex gap-2 text-[13px] text-white/70" }, h(Check, { size: 14, className: "text-emerald-400 mt-0.5 flex-shrink-0" }), f);
+                  })
+                ),
+                (prices["6"] || prices["12"] || prices["24"]) && h(
+                  "div", { className: "mt-5 grid grid-cols-3 gap-2" },
+                  RENTAL_PLANS.map(function (p) {
+                    return prices[p.id] && h("div", { key: p.id, className: "rounded-xl bg-white/5 border border-white/10 py-2.5 text-center" },
+                      h("div", { className: "text-[11px] text-white/50" }, p.label),
+                      h("div", { className: "text-[14px] font-semibold mt-0.5" }, money(prices[p.id]))
+                    );
+                  })
+                ),
+                prices.deposit && h("p", { className: "mt-2 text-[12px] text-white/50" }, "Refundable security deposit: " + money(prices.deposit)),
                 h("button", {
                   onClick: function () { openRentalForm(vehicle); },
-                  className: "mt-4 w-full bg-[#2E8B57] hover:bg-[#257a4b] py-2.5 rounded-full text-sm font-semibold flex items-center justify-center gap-2"
+                  className: "mt-5 w-full bg-[#2E8B57] hover:bg-[#257a4b] py-3 rounded-full text-sm font-semibold flex items-center justify-center gap-2"
                 }, "Rent Now", h(ArrowRight, { size: 15 }))
               )
+            )
+          );
+        })
+      ),
+      h(
+        GlassCard, { id: "kc-how-it-works", className: "p-6 md:p-10 scroll-mt-24" },
+        h("h2", { className: "text-2xl md:text-3xl font-semibold text-center" }, "How Renting Works"),
+        h(
+          "div", { className: "mt-8 grid md:grid-cols-3 gap-5" },
+          [
+            { n: "1", title: "Choose your ride", text: "Pick a scooter or bike above and tap Rent Now. Choose a 6, 12 or 24 hour plan." },
+            { n: "2", title: "Fill in the form", text: "Enter your schedule, your details and driving license number, then agree to the rental terms." },
+            { n: "3", title: "Confirm on WhatsApp", text: "We open WhatsApp with your request ready to send. Pay the rental fee and refundable deposit at pickup, and bring your original license and ID." }
+          ].map(function (step) {
+            return h(
+              "div", { key: step.n, className: "rounded-[16px] bg-white/5 border border-white/10 p-5" },
+              h("div", { className: "w-8 h-8 rounded-full bg-[#2E8B57] flex items-center justify-center text-sm font-bold" }, step.n),
+              h("div", { className: "mt-3 font-semibold text-[15px]" }, step.title),
+              h("p", { className: "mt-1.5 text-[13px] text-white/60 leading-relaxed" }, step.text)
             );
           })
         )
-      ),
-      SECTIONS.gallery && h(
-        GlassCard, { id: "kc-gallery", className: "p-6 md:p-8 scroll-mt-24" },
-        h(
-          "div", { className: "flex flex-wrap justify-between items-center gap-4" },
-          h("h3", { className: "text-2xl font-semibold" }, t("ourGallery", "Our Gallery"), h("br"), h("span", { className: "text-white/50 text-base font-normal" }, GALLERY_PAGE.subtitle)),
-          h("div", { className: "flex gap-2 flex-wrap" }, GALLERY_PAGE.filters.map(function (p) {
-            return h("button", { key: p, onClick: function () { setGalleryFilter(p); }, className: "px-4 py-1.5 rounded-full text-xs border transition " + (galleryFilter === p ? "bg-white text-black border-white" : "bg-white/5 border-white/10 hover:bg-white/10") }, p);
-          }))
-        ),
-        h("div", { className: "mt-6 grid grid-cols-12 gap-3 auto-rows-[140px]" }, CONTENT.galleryImages.filter(function (p) { return galleryFilter === "All" || p.cat === galleryFilter; }).map(function (p) {
-          return h(
-            "div", {
-              key: p.id,
-              className: p.span + " rounded-[16px] overflow-hidden border border-white/10 relative group cursor-pointer",
-              onClick: function () { toggleLightbox(p.src); }
-            },
-            h("img", { src: p.src, alt: p.cat || "Gallery photo", loading: "lazy", decoding: "async", className: "w-full h-full object-cover group-hover:scale-110 transition duration-700" }),
-            h("div", { className: "absolute inset-0 bg-black/10 group-hover:bg-black/0 transition" }),
-            h("div", { className: "absolute bottom-2 left-2 px-2 py-1 rounded-full bg-black/50 backdrop-blur text-[10px] border border-white/10" }, p.cat)
-          );
-        })),
-        h("div", { className: "mt-6 flex justify-center" }, h("a", { href: CONTENT.instagram, target: "_blank", className: "px-6 py-2.5 rounded-full bg-white/10 border border-white/10 hover:bg-white/15 text-sm flex items-center gap-2" }, h(Camera, { size: 16 }), GALLERY_PAGE.viewAllLabel))
       ),
       h(
         "footer", { id: "kc-contact", className: "pt-6 scroll-mt-24" },
@@ -2972,22 +2819,7 @@
     // Pages 2 and 3 each have their own dedicated call-to-action button
     // (package cards, and the booking form's "Next" submit button), so the
     // generic bottom-nav "Next" only needs to handle page 1.
-    var bottomNav = page !== 7 && !(page === 6 && isBookingLocked()) && h(
-      "div", { className: "fixed bottom-0 inset-x-0 z-30 p-3 md:p-4 pointer-events-none" },
-      h(
-        GlassCard, { className: "max-w-[1280px] mx-auto px-4 py-3 flex justify-between items-center pointer-events-auto" },
-        page !== 1 && h("button", {
-          onClick: goBack,
-          className: "px-5 py-2 rounded-full bg-white/10 border border-white/10 text-sm flex items-center gap-2"
-        }, h(ArrowLeft, { size: 16 }), t("back", " Back")),
-        page === 1 && h("button", {
-          onClick: function () { setPage(HEADER_CTA_TARGET_PAGE); },
-          className: "px-6 py-2 rounded-full bg-[#2E8B57] hover:bg-[#257a4b] text-sm font-medium flex items-center gap-2"
-        }, t("next", "Next "), h(ArrowRight, { size: 16 })),
-        page === 1 && h("div", { className: "w-[92px]" }),
-        page !== 1 && h("div", { className: "w-[92px]" })
-      )
-    );
+    var bottomNav = false;
 
     // ---- Gallery lightbox (tap a gallery photo to expand it to full
     // size with a smooth scale/fade transition; tap again to shrink it
@@ -3071,7 +2903,7 @@
             h(
               "label", { className: "block" },
               h("span", { className: "text-xs text-white/60" }, "Destination (within Meghalaya)"),
-              h("input", { type: "text", value: rentalForm.destination, onChange: function (e) { updateRentalForm({ destination: e.target.value }); }, placeholder: "e.g. Krem Chympe, Dawki", className: rentalInputClass + " mt-2" })
+              h("input", { type: "text", value: rentalForm.destination, onChange: function (e) { updateRentalForm({ destination: e.target.value }); }, placeholder: "e.g. Dawki, Shillong", className: rentalInputClass + " mt-2" })
             ),
             h(
               "div", { className: "rounded-xl bg-white/5 border border-white/10 p-4 space-y-1.5" },
@@ -3138,7 +2970,7 @@
 
           h(
             "div", { className: "mt-6 flex gap-3" },
-            h("button", { onClick: rentalGoBack, className: "px-5 py-2.5 rounded-full bg-white/10 border border-white/10 text-sm flex items-center gap-2" }, h(ArrowLeft, { size: 15 }), "Back"),
+            rentalStep > 1 && h("button", { onClick: rentalGoBack, className: "px-5 py-2.5 rounded-full bg-white/10 border border-white/10 text-sm flex items-center gap-2" }, h(ArrowLeft, { size: 15 }), "Back"),
             rentalStep < 4 && h("button", { onClick: rentalGoNext, className: "flex-1 bg-[#2E8B57] hover:bg-[#257a4b] py-2.5 rounded-full text-sm font-semibold flex items-center justify-center gap-2" }, "Next", h(ArrowRight, { size: 15 })),
             rentalStep === 4 && h("button", { onClick: submitRentalViaWhatsApp, className: "flex-1 kc-whatsapp-btn" }, h(Phone, { size: 16 }), "Submit Booking Request")
           )
@@ -3170,7 +3002,8 @@
         onBookNow: function () {
           var link = CONTENT.hero && CONTENT.hero.bookNowLink;
           if (link) { window.open(link, "_blank"); return; }
-          setPage((CONTENT.hero && CONTENT.hero.bookNowTargetPage) || 2);
+          setMobileMenuOpen(false);
+          goVehicles();
         },
         onDiscover: function () { scrollToId("kc-content-start"); }
       }),

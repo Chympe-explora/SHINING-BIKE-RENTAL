@@ -1,5 +1,5 @@
 /* ============================================================
-   ✏️  KREM CHYMPE — EDIT-THIS-FILE
+   ✏️  SHINING BIKE RENTAL — EDIT-THIS-FILE
    ============================================================
 
    THIS IS THE ONLY FILE YOU NEED TO OPEN TO CHANGE:
@@ -26,8 +26,8 @@
          Wrong:      perPerson: "₹2,600",
 
    3. Text (words/sentences) DOES need quote marks around it.
-         Correct:    siteName: "KREM CHYMPE",
-         Wrong:      siteName: KREM CHYMPE,
+         Correct:    siteName: "SHINING BIKE RENTAL",
+         Wrong:      siteName: SHINING BIKE RENTAL,
 
    4. Every line (except the very last one in a { } group) must
       end with a comma  ,   — this is the single most common
@@ -190,10 +190,17 @@
   // 📝 SECTION 3 — TEXT ON THE WEBSITE
   // Every sentence, label, and button on the site comes from here.
   // ============================================================
+    // NOTE: This site is now a bike & scooter RENTAL site. The parts of this
+    // file you'll actually edit are: siteName/siteSub, hero, nav, footer,
+    // whatsappNumber, PRICES.vehicleRental (prices), vehicleRental (the
+    // vehicle cards), rentalPolicy (terms) and refundPolicy. Older blocks
+    // further down (packages, gallery, story, cave/visitor content, camping
+    // prices, payment...) are leftovers from the previous camping site;
+    // the website no longer shows them.
     window.KC_CONTENT = {
       // ---- Site identity ----
-      siteName: "KREM CHYMPE",
-      siteSub: "ADVENTURE & CAMPING",
+      siteName: "SHINING BIKE RENTAL",
+      siteSub: "BIKE & SCOOTER RENTAL",
 
       // ---- 🎬 Site-wide background video ----
       // One cinematic video pinned behind the whole site while visitors
@@ -293,15 +300,15 @@
       // needs to be touched. ----
       sections: {
         trustBar: false,      // moved to the main home page (combined with Wilderness Expedition's)
-        visitorGuide: true,   // the "Know Before You Go" first-time-visitor info block
-        activitiesFacilities: true, // the "Activities & Facilities" block
-        ourStory: true,       // the "Our Story" timeline block
-        statsRow: true,       // the 10.5KM / 3-4 Hrs / 50+ / 4.9 stat tiles
-        meetGuide: true,      // the "Meet Your Guide" card
-        sharedTourCard: true, // the "Shared Tour" package card
-        privatePackageCard: true, // the "Private Package" package card
-        packagesTrustRow: true, // "Safe & Secure / Local Guides / Eco Friendly / 4.9 Rating" strip
-        gallery: true,         // the whole "Our Gallery" block
+        visitorGuide: false,   // the "Know Before You Go" first-time-visitor info block
+        activitiesFacilities: false, // the "Activities & Facilities" block
+        ourStory: false,       // the "Our Story" timeline block
+        statsRow: false,       // the 10.5KM / 3-4 Hrs / 50+ / 4.9 stat tiles
+        meetGuide: false,      // the "Meet Your Guide" card
+        sharedTourCard: false, // the "Shared Tour" package card
+        privatePackageCard: false, // the "Private Package" package card
+        packagesTrustRow: false, // "Safe & Secure / Local Guides / Eco Friendly / 4.9 Rating" strip
+        gallery: false,         // the whole "Our Gallery" block
         vehicleRental: true    // the "Rent a Bike or Scooter" block + rental form
       },
 
@@ -309,16 +316,15 @@
       nav: {
         items: [
           { label: "Home", target: "home" },
-          { label: "Explore", target: "explore" },
-          { label: "Packages", target: "packages" },
-          { label: "Gallery", target: "gallery" },
-          { label: "Booking", target: "booking" },
+          { label: "Vehicles", target: "vehicles" },
+          { label: "Rental Terms", target: "terms" },
           { label: "Contact", target: "contact" }
         ],
         mobileItems: [
           { label: "Home", target: "home" },
-          { label: "Packages", target: "packages" },
-          { label: "Gallery", target: "gallery" }
+          { label: "Vehicles", target: "vehicles" },
+          { label: "Rental Terms", target: "terms" },
+          { label: "Contact", target: "contact" }
         ]
       },
 
@@ -492,21 +498,25 @@
             name: "Scooter — Model A",
             type: "Scooter Model A",
             description: "Light and easy to ride — best for solo riders or short local trips.",
-            badge: "Popular"
+            badge: "Popular",
+            // Add photos here (file names in this folder), e.g. images: ["scooter-a-1.jpg", "scooter-a-2.jpg"]
+            images: []  // optional: "details" (extra paragraph) and "features" (bullet list) also supported
           },
           {
             id: "scooterB",
             name: "Scooter — Model B",
             type: "Scooter Model B",
-            description: "A bit more power for two riders and longer waterfall or cave day trips.",
-            badge: ""
+            description: "A bit more power for two riders and longer day trips.",
+            badge: "",
+            images: []  // optional: "details" (extra paragraph) and "features" (bullet list) also supported
           },
           {
             id: "bikeC",
             name: "Bike — Model C",
             type: "Bike Model C",
             description: "Geared motorbike built for hilly roads and off-the-beaten-path routes.",
-            badge: "For hilly roads"
+            badge: "For hilly roads",
+            images: []  // optional: "details" (extra paragraph) and "features" (bullet list) also supported
           }
         ]
       },
@@ -563,7 +573,7 @@
             number: 5,
             heading: "Damage, Accidents & Liability",
             blocks: [
-              { text: "The renter uses the vehicle entirely at their own risk. Team Explo Era is not liable for accidents, injuries, or death during the rental period." },
+              { text: "The renter uses the vehicle entirely at their own risk. Shining Bike Rental is not liable for accidents, injuries, or death during the rental period." },
               { type: "list", items: [
                 "The renter is responsible for all traffic fines, parking charges, vehicle damage, scratches, or stolen parts/helmets.",
                 "The renter is responsible for any damage caused to third-party vehicles or persons.",
@@ -843,20 +853,20 @@
 
       // ---- Homepage hero text ----
       hero: {
-        badge: "MEGHALAYA — CHYMPE FALL & CAVE ADVENTURE",
-        title: "Discover Meghalaya's Hidden Paradise",
-        sub: "Krem Chympe is India's 5th-longest cave system, with about 10.5 km of mapped passages (explorers have surveyed close to 19 km so far). A short forest trek from Khaddum Village leads you past the beautiful Chympe (Pieltleng) Waterfall to a hidden cave, an underground lake, golden mineral formations, and rare wildlife found almost nowhere else on Earth — all still untouched by crowds.",
-        visitorsLabel: "Visitors",
-        duration: "Full-Day Trip (3–4 Hrs Trek Each Way)",
-        priceLabel: "Starts ₹1500 Per Guide",
-        quote: "Symphony in the mist.", // Editable from the Telegram admin bot → ✏️ Edit Website Text → Hero → Quote
+        badge: "SELF-DRIVE BIKE & SCOOTER RENTAL",
+        title: "Ride Meghalaya Your Way",
+        sub: "Pick a scooter or bike, choose a 6, 12 or 24 hour plan, and send your rental request on WhatsApp. Self-drive rentals with pickup and drop between 8:00 AM and 8:00 PM daily.",
+        visitorsLabel: "Riders",
+        duration: "6, 12 & 24 Hour Plans",
+        priceLabel: "",
+        quote: "Ride at your own pace.",
         videoUrl: "hero-video.mp4",
-        videoEnabled: true, // Telegram admin bot → ✏️ Edit Website Text → Hero → Video Enabled (tap to switch on/off)
+        videoEnabled: true,
         fallbackImage: window.KC_IMAGES.heroBg1,
         enabled: true,
         discoverLabel: "Discover",
-        bookNowLabel: "Explore",
-        bookNowTargetPage: 2,
+        bookNowLabel: "View Vehicles",
+        bookNowTargetPage: 1,
         bookNowLink: ""
       },
 
@@ -866,7 +876,7 @@
       // admin bot → ✏️ Edit Website Text → UI Labels → bookNow; the
       // page it jumps to is set here.
       headerCta: {
-        targetPage: 2
+        targetPage: 1
       },
 
       // Public notice popup — fully controlled from the Telegram admin bot
@@ -925,15 +935,15 @@
 
       // ---- Site footer (shown at the very bottom of the home page) ----
       footer: {
-        brandName: "TEAM EXPLO ERA",
+        brandName: "SHINING BIKE RENTAL",
         locationLine: "Brishyrnot, Hno: 34, Near Football Ground, Po: Lumshonong, East Jaintia Hills, Meghalaya, 793200, India",
         contactTitle: "Contact Us",
         phone: "+91 8787679579",
         email: "teamexploera@gmail.com",
         followTitle: "Follow Us On",
         importantLinkTitle: "Important Link",
-        refundPolicyLabel: "Refund Policy",
-        copyright: "Copyright © Team explo era. All rights reserved."
+        refundPolicyLabel: "Rental Terms & Refunds",
+        copyright: "Copyright © Shining Bike Rental. All rights reserved."
       },
 
       // ---- Refund Policy page (opens only when "Refund Policy" is tapped
@@ -944,114 +954,22 @@
       // { type: "list", lead: "optional line before the list", items: [...] }.
       // Reword or add to any of it the same way as everything else here.
       refundPolicy: {
-        title: "Refund Policy",
-        intro: "At Krem Chympe, we understand that plans can change and that outdoor adventures can sometimes be affected by weather and natural conditions.",
-        sections: [
-          {
-            number: "1",
-            heading: "Cancellation by Krem Chympe",
-            blocks: [
-              { type: "text", text: "Your safety comes first." },
-              { type: "text", text: "Krem Chympe may cancel, postpone or modify an activity if heavy rainfall, flooding, high water levels, unsafe cave conditions, dangerous trails or other natural circumstances make the experience unsafe." },
-              { type: "list", lead: "In such cases, you may be offered:", items: [
-                "Rescheduling to another available date; or",
-                "A refund for the cancelled service where rescheduling or an appropriate alternative is not possible."
-              ] },
-              { type: "text", text: "The final decision to proceed with an activity rests with the local guide/operator when safety is concerned." }
-            ]
-          },
-          {
-            number: "2",
-            heading: "Partial Activity Cancellation",
-            blocks: [
-              { type: "text", text: "If only part of your booking is affected by weather, safety or other unavoidable circumstances, unaffected activities may continue." },
-              { type: "list", lead: "For the cancelled activity, Krem Chympe may offer:", items: [
-                "An alternative activity;",
-                "Rescheduling; or",
-                "A refund for the affected portion, where applicable."
-              ] },
-              { type: "text", text: "For example, if water conditions make bamboo rafting or cave water activities unsafe, other suitable activities may still continue." }
-            ]
-          },
-          {
-            number: "3",
-            heading: "Weather & Monsoon",
-            blocks: [
-              { type: "text", text: "Krem Chympe is a natural adventure destination where weather and water conditions can change rapidly." },
-              { type: "text", text: "During heavy rainfall, water levels around and inside the cave may rise, making certain activities unsafe." },
-              { type: "text", text: "If an activity is stopped or cancelled because continuing would create a safety risk, it will be handled under the Cancellation by Krem Chympe section of this policy." }
-            ]
-          },
-          {
-            number: "4",
-            heading: "Homestay, Camping & Additional Services",
-            blocks: [
-              { type: "text", text: "Bookings may include services such as:" },
-              { type: "list", items: [
-                "Homestay",
-                "4×4 pickup and drop",
-                "Guide",
-                "Camping equipment",
-                "Overnight guide",
-                "Local food",
-                "Life jackets and other equipment"
-              ] },
-              { type: "text", text: "Refund eligibility for these services may depend on whether the service has already been provided or whether non-refundable arrangements have already been made." },
-              { type: "text", text: "Any specific conditions will be communicated during the booking process where applicable." }
-            ]
-          },
-          {
-            number: "5",
-            heading: "Refund Processing",
-            blocks: [
-              { type: "text", text: "Approved refunds will normally be returned through the original payment method." },
-              { type: "text", text: "The time required for the refund to appear in your account may depend on the bank or payment provider." }
-            ]
-          },
-          {
-            number: "6",
-            heading: "How to Request a Cancellation",
-            blocks: [
-              { type: "text", text: "To cancel your booking, contact Team Explo Era using the contact details provided on the website or your booking confirmation." },
-              { type: "list", lead: "Please provide:", items: [
-                "Booking name",
-                "Booking/reference number",
-                "Visit date",
-                "Contact number",
-                "Cancellation request"
-              ] },
-              { type: "text", text: "Your cancellation will be considered based on the time the cancellation request is received." }
-            ]
-          },
-          {
-            number: "7",
-            heading: "Important Safety Notice",
-            blocks: [
-              { type: "text", text: "Krem Chympe is an adventure destination involving trekking, cave exploration, water activities, off-roading, camping and other outdoor experiences." },
-              { type: "text", text: "Safety takes priority over completing an itinerary." },
-              { type: "text", text: "If a guide or operator determines that an activity is unsafe, the activity may be changed, postponed or cancelled even if it was originally included in your booking." },
-              { type: "text", text: "By booking with Krem Chympe, you acknowledge and accept this condition." }
-            ]
-          }
-        ],
-        promiseTitle: "Our Promise",
-        promiseText: [
-          "We would rather change an adventure than compromise your safety.",
-          "When nature changes the plan, we'll do our best to provide a suitable alternative, reschedule your experience, or provide an applicable refund."
-        ],
-        // ---- WhatsApp refund request (bottom of this page) ----
-        // A visitor MUST type in their booking reference number before the
-        // "Chat With Us" button will work — this is the only way we can
-        // require a real reference number on a website with no backend/
-        // login system. {referenceNumber} in the message is automatically
-        // replaced with whatever the visitor types into that box.
+        title: "Rental Terms & Refund Policy",
+        intro: "Please read these terms before renting from Shining Bike Rental. They are the same terms you agree to when you send a rental request.",
+        // The numbered terms shown on this page come from rentalPolicy above (one place to edit).
+        sections: [],
+        promiseTitle: "",
+        promiseText: [],
+        // ---- WhatsApp cancellation / refund request (bottom of this page) ----
+        // The visitor must type their rental reference (the "Ref" code in
+        // their WhatsApp rental request) before the button works.
         whatsapp: {
-          buttonLabel: "Chat With Us For A Refund",
-          referenceLabel: "Your Booking Reference Number",
-          referencePlaceholder: "e.g. 0001",
-          referenceHelperNote: "This was given to you on WhatsApp right after you booked. Refunds can only be requested with a valid reference number — if you don't have one, you haven't completed a booking with us.",
-          referenceMissingError: "Please enter your booking reference number first — this was sent to you on WhatsApp after you booked.",
-          message: "Hello Krem Chympe, I would like to request a refund / cancellation for my booking.\n\nBooking Reference Number: {referenceNumber}\nBooking name: \nVisit date: \nContact number: \nReason for refund request: "
+          buttonLabel: "Chat With Us About A Cancellation",
+          referenceLabel: "Your Rental Reference",
+          referencePlaceholder: "e.g. R1A2B3",
+          referenceHelperNote: "This is the Ref code shown at the top of the rental request you sent us on WhatsApp.",
+          referenceMissingError: "Please enter your rental reference first — it's the Ref code in your WhatsApp rental request.",
+          message: "Hello Shining Bike Rental, I would like to request a cancellation / refund for my rental.\n\nRental Reference: {referenceNumber}\nName: \nVehicle: \nPickup date: \nContact number: \nReason: "
         }
       },
 
@@ -1060,7 +978,7 @@
       // them reads from here first, so you can reword any of them the same
       // way as everything else above — change the text, save, refresh.
       ui: {
-        bookNow: "Book Now",
+        bookNow: "View Vehicles",
         payNow: "Pay Now",
         next: "Next ",
         nextViewPricing: "Next — View Pricing ",
